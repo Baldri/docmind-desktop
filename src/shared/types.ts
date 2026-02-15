@@ -30,6 +30,11 @@ export const IPC_CHANNELS = {
 
   // Export
   EXPORT_SAVE_FILE: 'export:saveFile',
+
+  // Auto-Update
+  UPDATE_CHECK: 'updater:check',
+  UPDATE_DOWNLOAD: 'updater:download',
+  UPDATE_INSTALL: 'updater:install',
 } as const
 
 // ── Service Status ──────────────────────────────────────────────────────
@@ -146,6 +151,25 @@ export interface AppSettings {
   ragWissenPath: string
   watchDirectories: string[]
   theme: 'dark' | 'light' | 'system'
+}
+
+// ── Auto-Update ─────────────────────────────────────────────────────
+
+export type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+
+export interface UpdateInfo {
+  status: UpdateStatus
+  version?: string
+  releaseNotes?: string
+  downloadPercent?: number
+  error?: string
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {

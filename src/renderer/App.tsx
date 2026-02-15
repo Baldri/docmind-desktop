@@ -7,6 +7,7 @@ import { SettingsView } from './components/SettingsView'
 import { SetupWizard } from './components/SetupWizard'
 import { ServiceStatus } from './components/ServiceStatus'
 import { ConnectionBanner } from './components/ConnectionBanner'
+import { UpdateBanner } from './components/UpdateBanner'
 import { OnboardingTour } from './components/OnboardingTour'
 import { useServicesStore } from './stores/services-store'
 import { useChatStore } from './stores/chat-store'
@@ -120,6 +121,7 @@ export function App() {
 
       {/* Main Content */}
       <main className="flex flex-1 flex-col overflow-hidden">
+        <UpdateBanner />
         <ConnectionBanner />
         {activeView === 'chat' && <ChatView />}
         {activeView === 'search' && <SearchView />}

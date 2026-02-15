@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/types'
-import type { SearchOptions, ServiceInfo } from '../shared/types'
+import type { SearchOptions, ServiceInfo, UpdateInfo } from '../shared/types'
 
 /**
  * Preload script — runs in a sandboxed context with access to Electron APIs.
@@ -108,6 +108,25 @@ const api = {
   export: {
     saveFile: (content: string, defaultFilename: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.EXPORT_SAVE_FILE, content, defaultFilename),
+  },
+
+  // ── Auto-Update ────────────────────────────────────────────────────
+  updater: {
+    check: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.UPDATE_CHECK),
+
+    download: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.UPDATE_DOWNLOAD),
+
+    install: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.UPDATE_INSTALL),
+
+    /** Fires when update status changes (checking, available, downloading, etc.) */
+    onStatus: (callback: (info: UpdateInfo) => void) => {
+      const listener = (_event: unknown, info: UpdateInfo) => callback(info)
+      ipcRenderer.on('updater:status', listener)
+      return () => ipcRenderer.removeListener('updater:status', listener)
+    },
   },
 
   // ── Platform Info ───────────────────────────────────────────────────

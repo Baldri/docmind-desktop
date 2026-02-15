@@ -5,6 +5,7 @@ import { IPC_CHANNELS } from '../shared/types'
 import type { QdrantSidecar } from './services/qdrant-sidecar'
 import type { PythonSidecar } from './services/python-sidecar'
 import type { OllamaChecker } from './services/ollama-checker'
+import type { AutoUpdaterService } from './services/auto-updater'
 
 /** Supported file extensions for document indexing */
 const INDEXABLE_EXTENSIONS = new Set([
@@ -68,6 +69,7 @@ interface ServiceDeps {
   qdrant: QdrantSidecar
   python: PythonSidecar
   ollama: OllamaChecker
+  updater?: AutoUpdaterService
 }
 
 /**
@@ -118,7 +120,7 @@ async function getJSON(url: string): Promise<unknown> {
  *   GET  /api/v1/files          → Document list
  */
 export function registerIPCHandlers(deps: ServiceDeps): void {
-  const { qdrant, python, ollama } = deps
+  const { qdrant, python, ollama, updater } = deps
 
   // ── Services Status ────────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.SERVICES_STATUS, () => {
@@ -552,4 +554,25 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
       }
     },
   )
+
+  // ── Auto-Update ──────────────────────────────────────────────────
+  // Updater is optional — only available in packaged builds.
+
+  ipcMain.handle(IPC_CHANNELS.UPDATE_CHECK, async () => {
+    if (!updater) return { status: 'error', error: 'Updater not available in dev mode' }
+    await updater.checkForUpdates()
+    return updater.getStatus()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.UPDATE_DOWNLOAD, async () => {
+    if (!updater) return { status: 'error', error: 'Updater not available in dev mode' }
+    await updater.downloadUpdate()
+    return updater.getStatus()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.UPDATE_INSTALL, () => {
+    if (!updater) return { status: 'error', error: 'Updater not available in dev mode' }
+    updater.installUpdate()
+    return { status: 'installing' }
+  })
 }

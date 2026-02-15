@@ -4,6 +4,7 @@ import { registerIPCHandlers } from './ipc-handlers'
 import { QdrantSidecar } from './services/qdrant-sidecar'
 import { PythonSidecar } from './services/python-sidecar'
 import { OllamaChecker } from './services/ollama-checker'
+import { AutoUpdaterService } from './services/auto-updater'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -11,6 +12,9 @@ let mainWindow: BrowserWindow | null = null
 const qdrant = new QdrantSidecar()
 const python = new PythonSidecar()
 const ollama = new OllamaChecker()
+
+// Auto-updater — only active in packaged builds
+const updater = app.isPackaged ? new AutoUpdaterService() : null
 
 function createWindow(): void {
   const isMac = process.platform === 'darwin'
@@ -83,7 +87,7 @@ app.whenReady().then(async () => {
   }
 
   // Register IPC handlers (must happen before window creation)
-  registerIPCHandlers({ qdrant, python, ollama })
+  registerIPCHandlers({ qdrant, python, ollama, updater: updater ?? undefined })
 
   // Set Content Security Policy
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
@@ -121,6 +125,11 @@ app.whenReady().then(async () => {
 
   createWindow()
 
+  // Start auto-updater after window is created (packaged builds only)
+  if (updater) {
+    updater.start()
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
@@ -145,6 +154,7 @@ app.on('before-quit', (event) => {
   isQuitting = true
 
   console.log('[Docmind] Shutting down services...')
+  updater?.stop()
   Promise.allSettled([qdrant.stop(), python.stop()])
     .then((results) => {
       results.forEach((r, i) => {

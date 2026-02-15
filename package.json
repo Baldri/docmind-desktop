@@ -1,6 +1,6 @@
 {
   "name": "docmind-desktop",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Docmind - Intelligent Document Search & Chat for Education",
   "main": "dist/main/index.js",
   "author": {
@@ -29,6 +29,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "electron-updater": "^6.7.3",
     "lucide-react": "^0.563.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
