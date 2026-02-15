@@ -19,7 +19,22 @@ interface ServicesState {
  *   all services fall back to 'unhealthy' with an error message.
  * - restartService catches errors and triggers a re-check.
  */
-export const useServicesStore = create<ServicesState>((set, get) => ({
+export const useServicesStore = create<ServicesState>((set, get) => {
+  // Listen for sidecar crash events pushed from main process.
+  // This fires instantly when a sidecar dies — no 10s polling delay.
+  if (typeof window !== 'undefined' && window.electronAPI?.services?.onServiceCrashed) {
+    window.electronAPI.services.onServiceCrashed((name, exitCode) => {
+      console.error(`[Services] ${name} crashed with exit code ${exitCode}`)
+      set((state) => ({
+        connectionError: `${name} ist unerwartet gestoppt (Exit-Code ${exitCode})`,
+        services: state.services.map((s) =>
+          s.name === name ? { ...s, status: 'unhealthy' as const } : s,
+        ),
+      }))
+    })
+  }
+
+  return {
   services: [
     { name: 'qdrant', status: 'starting', url: 'http://127.0.0.1:6333' },
     { name: 'python', status: 'starting', url: 'http://127.0.0.1:8001' },
@@ -72,4 +87,4 @@ export const useServicesStore = create<ServicesState>((set, get) => ({
       get().checkStatus()
     }, 2000)
   },
-}))
+}})

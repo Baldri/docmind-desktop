@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { spawn, ChildProcess } from 'child_process'
 import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
@@ -8,6 +8,16 @@ const QDRANT_PORT = 6333
 const QDRANT_HEALTH_URL = `http://127.0.0.1:${QDRANT_PORT}/healthz`
 const HEALTH_RETRIES = 20
 const HEALTH_INTERVAL_MS = 500
+
+/**
+ * Maps Node.js process.platform to electron-builder's ${os} naming.
+ * electron-builder uses 'mac' not 'darwin', 'win' not 'win32'.
+ */
+const PLATFORM_MAP: Record<string, string> = {
+  darwin: 'mac',
+  win32: 'win',
+  linux: 'linux',
+}
 
 /**
  * Manages the Qdrant vector database as a sidecar process.
@@ -41,7 +51,9 @@ export class QdrantSidecar {
       return join(process.resourcesPath, 'bin', 'qdrant')
     }
     // Dev mode: try local bin directory or system-installed qdrant
-    const localBin = join(app.getAppPath(), 'bin', process.platform, process.arch, 'qdrant')
+    // Use electron-builder naming (mac/win/linux) not Node.js (darwin/win32/linux)
+    const osPlatform = PLATFORM_MAP[process.platform] ?? process.platform
+    const localBin = join(app.getAppPath(), 'bin', osPlatform, process.arch, 'qdrant')
     if (existsSync(localBin)) {
       return localBin
     }
@@ -91,8 +103,17 @@ export class QdrantSidecar {
 
     this.process.on('exit', (code) => {
       console.log(`[Qdrant] Process exited with code ${code}`)
+      const wasCrash = code !== 0 && code !== null
       this.healthy = false
       this.process = null
+
+      // Notify renderer immediately when sidecar crashes
+      if (wasCrash) {
+        console.error(`[Qdrant] Unexpected exit (code ${code}) — notifying renderer`)
+        for (const win of BrowserWindow.getAllWindows()) {
+          win.webContents.send('service:crashed', 'qdrant', code)
+        }
+      }
     })
 
     // Wait for health check to pass
@@ -116,7 +137,7 @@ export class QdrantSidecar {
         resolve()
       }, 5000)
 
-      this.process?.on('exit', () => {
+      this.process?.once('exit', () => {
         clearTimeout(timeout)
         resolve()
       })

@@ -127,6 +127,11 @@ export const useChatStore = create<ChatState>((set, get) => {
         const { sessionId } = get()
         await window.electronAPI.chat.send(content, sessionId ?? undefined)
       } catch (error) {
+        // Clean up listeners on IPC-level errors (e.g. main process unreachable)
+        if (cleanupListeners) {
+          cleanupListeners()
+          cleanupListeners = null
+        }
         const raw = error instanceof Error ? error.message : 'Unknown error'
         set({
           isStreaming: false,

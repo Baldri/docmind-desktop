@@ -95,6 +95,13 @@ const api = {
 
     restart: (serviceName: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.SERVICES_RESTART, serviceName),
+
+    /** Fires when a sidecar process crashes unexpectedly */
+    onServiceCrashed: (callback: (name: string, exitCode: number | null) => void) => {
+      const listener = (_event: unknown, name: string, exitCode: number | null) => callback(name, exitCode)
+      ipcRenderer.on('service:crashed', listener)
+      return () => ipcRenderer.removeListener('service:crashed', listener)
+    },
   },
 
   // ── Export ─────────────────────────────────────────────────────────

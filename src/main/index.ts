@@ -134,9 +134,29 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('before-quit', async () => {
+// Guard against async quit: Electron does NOT await async callbacks in
+// before-quit. We must preventDefault(), run cleanup, then re-trigger quit.
+let isQuitting = false
+
+app.on('before-quit', (event) => {
+  if (isQuitting) return // Already cleaning up — let it through
+
+  event.preventDefault()
+  isQuitting = true
+
   console.log('[Docmind] Shutting down services...')
-  await Promise.allSettled([qdrant.stop(), python.stop()])
+  Promise.allSettled([qdrant.stop(), python.stop()])
+    .then((results) => {
+      results.forEach((r, i) => {
+        const names = ['Qdrant', 'Python']
+        if (r.status === 'rejected') {
+          console.error(`[Docmind] ${names[i]} shutdown error:`, r.reason)
+        }
+      })
+    })
+    .finally(() => {
+      app.quit()
+    })
 })
 
 // ── Error Handling ───────────────────────────────────────────────────────

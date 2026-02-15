@@ -1,3 +1,4 @@
+import { BrowserWindow } from 'electron'
 import { spawn, ChildProcess } from 'child_process'
 import type { ServiceInfo } from '../../shared/types'
 
@@ -93,8 +94,17 @@ export class PythonSidecar {
 
     this.process.on('exit', (code) => {
       console.log(`[Python] Process exited with code ${code}`)
+      const wasCrash = code !== 0 && code !== null
       this.healthy = false
       this.process = null
+
+      // Notify renderer immediately when sidecar crashes
+      if (wasCrash) {
+        console.error(`[Python] Unexpected exit (code ${code}) — notifying renderer`)
+        for (const win of BrowserWindow.getAllWindows()) {
+          win.webContents.send('service:crashed', 'python', code)
+        }
+      }
     })
 
     this.healthy = await this.waitForHealthy()
@@ -116,7 +126,7 @@ export class PythonSidecar {
         resolve()
       }, 5000)
 
-      this.process?.on('exit', () => {
+      this.process?.once('exit', () => {
         clearTimeout(timeout)
         resolve()
       })

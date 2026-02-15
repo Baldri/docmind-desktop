@@ -24,7 +24,7 @@ interface StepConfig {
 }
 
 interface InstallStep {
-  label: string
+  label?: string
   command?: string
   note?: string
 }

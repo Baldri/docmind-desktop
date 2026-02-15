@@ -13,22 +13,39 @@ const INDEXABLE_EXTENSIONS = new Set([
   '.html', '.htm',
 ])
 
+const MAX_WALK_DEPTH = 10
+const MAX_INDEXABLE_FILES = 5000
+
 /**
  * Recursively collect all indexable files from a directory.
- * Skips hidden directories (dot-prefixed) and non-indexable files.
+ * Skips hidden directories, symlinks, and non-indexable files.
+ * Caps at MAX_WALK_DEPTH levels and MAX_INDEXABLE_FILES files.
  */
 async function collectIndexableFiles(dirPath: string): Promise<string[]> {
   const files: string[] = []
 
-  async function walk(dir: string): Promise<void> {
-    const entries = await readdir(dir, { withFileTypes: true })
+  async function walk(dir: string, depth: number): Promise<void> {
+    if (depth > MAX_WALK_DEPTH || files.length >= MAX_INDEXABLE_FILES) return
+
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch (error) {
+      // Permission denied, broken symlink, etc. — skip and continue
+      console.warn(`[Index] Skipping directory (${(error as NodeJS.ErrnoException).code ?? 'unknown'}): ${dir}`)
+      return
+    }
+
     for (const entry of entries) {
-      // Skip hidden directories/files
+      if (files.length >= MAX_INDEXABLE_FILES) break
+
+      // Skip hidden directories/files and symlinks
       if (entry.name.startsWith('.')) continue
+      if (entry.isSymbolicLink()) continue
 
       const fullPath = join(dir, entry.name)
       if (entry.isDirectory()) {
-        await walk(fullPath)
+        await walk(fullPath, depth + 1)
       } else if (entry.isFile()) {
         const ext = extname(entry.name).toLowerCase()
         if (INDEXABLE_EXTENSIONS.has(ext)) {
@@ -38,7 +55,7 @@ async function collectIndexableFiles(dirPath: string): Promise<string[]> {
     }
   }
 
-  await walk(dirPath)
+  await walk(dirPath, 0)
   return files
 }
 
@@ -67,15 +84,26 @@ async function postJSON(url: string, body: Record<string, unknown>): Promise<unk
     const text = await response.text().catch(() => '')
     throw new Error(`HTTP ${response.status}: ${text}`)
   }
-  return response.json()
+  const text = await response.text()
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error(`Invalid JSON response from ${url}: ${text.slice(0, 200)}`)
+  }
 }
 
 async function getJSON(url: string): Promise<unknown> {
   const response = await fetch(url)
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`)
+    const text = await response.text().catch(() => '')
+    throw new Error(`HTTP ${response.status}: ${text}`)
   }
-  return response.json()
+  const text = await response.text()
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error(`Invalid JSON response from ${url}: ${text.slice(0, 200)}`)
+  }
 }
 
 /**
@@ -97,19 +125,31 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
     return [qdrant.getStatus(), python.getStatus(), ollama.getStatus()]
   })
 
+  const VALID_SERVICES = new Set(['qdrant', 'python', 'ollama'])
+
   ipcMain.handle(IPC_CHANNELS.SERVICES_RESTART, async (_event, serviceName: string) => {
-    if (serviceName === 'qdrant') {
-      await qdrant.stop()
-      return qdrant.start()
+    if (!VALID_SERVICES.has(serviceName)) {
+      console.warn(`[IPC] Unknown service restart request: ${serviceName}`)
+      return false
     }
-    if (serviceName === 'python') {
-      await python.stop()
-      return python.start()
+
+    try {
+      if (serviceName === 'qdrant') {
+        await qdrant.stop()
+        return qdrant.start()
+      }
+      if (serviceName === 'python') {
+        await python.stop()
+        return python.start()
+      }
+      if (serviceName === 'ollama') {
+        return ollama.check()
+      }
+      return false
+    } catch (error) {
+      console.error(`[IPC] Service restart error (${serviceName}):`, error)
+      return false
     }
-    if (serviceName === 'ollama') {
-      return ollama.check()
-    }
-    return false
   })
 
   // ── Search (Hybrid) ────────────────────────────────────────────────
@@ -205,13 +245,22 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
         throw new Error('No response body for SSE stream')
       }
 
-      // Read SSE stream and forward events to renderer
+      // Read SSE stream with timeout protection and forward events to renderer.
+      // A 30s idle timeout prevents the chat from hanging forever if the
+      // Python backend becomes unresponsive (e.g. Ollama hangs, OOM).
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let malformedCount = 0
+      const STREAM_TIMEOUT_MS = 30_000
 
       while (true) {
-        const { done, value } = await reader.read()
+        const readPromise = reader.read()
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('SSE stream timeout: no data for 30s')), STREAM_TIMEOUT_MS),
+        )
+
+        const { done, value } = await Promise.race([readPromise, timeoutPromise])
         if (done) break
 
         buffer += decoder.decode(value, { stream: true })
@@ -238,7 +287,13 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
               win.webContents.send('chat:error', event_data.content)
             }
           } catch {
-            // skip malformed JSON lines
+            malformedCount++
+            console.warn(`[SSE] Malformed JSON line (${malformedCount}): ${jsonStr.slice(0, 200)}`)
+            // Abort if too many parse failures — likely a broken stream
+            if (malformedCount > 20) {
+              reader.cancel()
+              throw new Error('SSE stream aborted: too many malformed lines')
+            }
           }
         }
       }

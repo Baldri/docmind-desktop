@@ -18,7 +18,7 @@ export function ChatView() {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [exportMsg, setExportMsg] = useState<string | null>(null)
 
   const {
     messages,
@@ -30,10 +30,28 @@ export function ChatView() {
     clearError,
   } = useChatStore()
 
-  // Auto-scroll to bottom on new messages or streaming tokens
+  // Auto-scroll on new messages (not on every streaming token — that causes
+  // hundreds of smooth-scroll animations per second and janky behavior).
+  // During streaming, use 'instant' to avoid animation queue buildup.
+  const prevLengthRef = useRef(0)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (messages.length !== prevLengthRef.current) {
+      prevLengthRef.current = messages.length
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages.length])
+
+  // Keep scrolled to bottom while streaming (throttled via rAF)
+  useEffect(() => {
+    if (!isStreaming) return
+    let rafId: number
+    const scrollDown = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+      rafId = requestAnimationFrame(scrollDown)
+    }
+    rafId = requestAnimationFrame(scrollDown)
+    return () => cancelAnimationFrame(rafId)
+  }, [isStreaming])
 
   // Focus input on mount
   useEffect(() => {
@@ -103,7 +121,19 @@ export function ChatView() {
     lines.push('---', `*Exportiert am ${new Date().toLocaleString('de-CH')} mit Docmind Desktop*`)
 
     const filename = `docmind-chat-${date}.md`
-    await window.electronAPI.export.saveFile(lines.join('\n'), filename)
+    try {
+      const result = await window.electronAPI.export.saveFile(lines.join('\n'), filename) as Record<string, unknown>
+      if (result?.canceled) return
+      if (result?.error) {
+        setExportMsg(`Export fehlgeschlagen: ${result.error}`)
+      } else {
+        setExportMsg('Chat exportiert')
+      }
+      setTimeout(() => setExportMsg(null), 3000)
+    } catch (error) {
+      setExportMsg(`Export fehlgeschlagen: ${String(error)}`)
+      setTimeout(() => setExportMsg(null), 3000)
+    }
   }
 
   return (
@@ -172,6 +202,13 @@ export function ChatView() {
           <button onClick={clearError} className="ml-2 underline">
             Schliessen
           </button>
+        </div>
+      )}
+
+      {/* Export feedback */}
+      {exportMsg && (
+        <div className="mx-6 mb-2 rounded-md bg-emerald-500/10 px-4 py-2 text-sm text-emerald-400">
+          {exportMsg}
         </div>
       )}
 

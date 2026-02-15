@@ -215,7 +215,7 @@ export function DocumentsView() {
     >
       {/* Drag & Drop Overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm">
           <div className="rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 px-12 py-10 text-center">
             <Upload className="mx-auto mb-3 h-10 w-10 text-primary" />
             <p className="text-lg font-semibold text-primary">Dateien hier ablegen</p>
