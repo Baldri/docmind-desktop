@@ -131,13 +131,14 @@ export function ChatView() {
         <div className="mx-auto flex max-w-3xl items-end gap-2">
           <textarea
             ref={inputRef}
+            data-shortcut="chat-input"
             value={input}
             onChange={(e) => {
               setInput(e.target.value)
               autoResize()
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Frage stellen..."
+            placeholder="Frage stellen... (⌘N fuer neuen Chat)"
             rows={1}
             disabled={isStreaming}
             className="flex-1 resize-none rounded-lg border border-border bg-secondary px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
