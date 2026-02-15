@@ -258,7 +258,7 @@ function MessageBubble({
           {isUser ? (
             <p className="text-sm whitespace-pre-wrap">{message.content}</p>
           ) : message.content ? (
-            <div className="prose prose-sm prose-invert max-w-none">
+            <div className="prose prose-sm dark:prose-invert max-w-none">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {message.content}
               </ReactMarkdown>
@@ -319,7 +319,7 @@ function SourcesList({ sources }: { sources: ChatSource[] }) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
 
   return (
-    <div className="mt-3 border-t border-white/10 pt-2">
+    <div className="mt-3 border-t border-border pt-2">
       <p className="mb-1.5 text-xs font-medium text-muted-foreground">
         {sources.length} Quelle{sources.length !== 1 ? 'n' : ''}
       </p>
@@ -329,7 +329,7 @@ function SourcesList({ sources }: { sources: ChatSource[] }) {
             {/* Source header — clickable */}
             <button
               onClick={() => setExpandedIndex(expandedIndex === i ? null : i)}
-              className="flex w-full items-center gap-2 rounded bg-white/5 px-2 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-white/10"
+              className="flex w-full items-center gap-2 rounded bg-black/5 dark:bg-white/5 px-2 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-black/10 dark:hover:bg-white/10"
             >
               <FileText className="h-3 w-3 shrink-0 text-primary/60" />
               <span className="flex-1 truncate">
@@ -354,7 +354,7 @@ function SourcesList({ sources }: { sources: ChatSource[] }) {
 
             {/* Expanded content preview */}
             {expandedIndex === i && src.content && (
-              <div className="mt-1 rounded border border-white/5 bg-white/[0.02] px-3 py-2">
+              <div className="mt-1 rounded border border-border bg-background/50 px-3 py-2">
                 <p className="line-clamp-6 whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground/80">
                   {src.content}
                 </p>

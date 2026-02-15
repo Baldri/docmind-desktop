@@ -1,5 +1,6 @@
 import { useServicesStore } from '../stores/services-store'
-import { RefreshCw } from 'lucide-react'
+import { useThemeStore } from '../stores/theme-store'
+import { RefreshCw, Sun, Moon, Monitor } from 'lucide-react'
 import type { ServiceStatus } from '../../shared/types'
 
 const STATUS_COLORS: Record<ServiceStatus, string> = {
@@ -16,12 +17,18 @@ const STATUS_BG: Record<ServiceStatus, string> = {
   stopped: 'bg-slate-500/10',
 }
 
+const THEME_OPTIONS = [
+  { value: 'light' as const, label: 'Hell', icon: Sun },
+  { value: 'dark' as const, label: 'Dunkel', icon: Moon },
+  { value: 'system' as const, label: 'System', icon: Monitor },
+]
+
 /**
- * Settings view — service status overview and configuration.
- * MVP: shows service health. Later: model selection, watch directories, theme.
+ * Settings view — theme selection, service status, and app info.
  */
 export function SettingsView() {
   const { services, isChecking, checkStatus, restartService } = useServicesStore()
+  const { theme, setTheme } = useThemeStore()
 
   return (
     <div className="flex h-full flex-col">
@@ -40,6 +47,29 @@ export function SettingsView() {
 
       <div className="flex-1 overflow-y-auto px-6 py-6">
         <div className="mx-auto max-w-2xl space-y-8">
+          {/* Theme Section */}
+          <section>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Erscheinungsbild
+            </h2>
+            <div className="flex gap-3">
+              {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  onClick={() => setTheme(value)}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-lg border p-3 text-sm font-medium transition-colors ${
+                    theme === value
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </section>
+
           {/* Services Section */}
           <section>
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -98,6 +128,29 @@ export function SettingsView() {
             </div>
           </section>
 
+          {/* Keyboard Shortcuts */}
+          <section>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Tastaturkuerzel
+            </h2>
+            <div className="rounded-lg border border-border bg-secondary/50 p-4">
+              <div className="space-y-2 text-sm">
+                {[
+                  ['⌘1 – ⌘4', 'Ansicht wechseln'],
+                  ['⌘K', 'Suche oeffnen'],
+                  ['⌘N', 'Neuer Chat'],
+                  ['⌘⇧⌫', 'Chat loeschen'],
+                  ['Esc', 'Streaming stoppen'],
+                ].map(([keys, desc]) => (
+                  <div key={keys} className="flex justify-between">
+                    <span className="text-muted-foreground">{desc}</span>
+                    <kbd className="rounded bg-background px-2 py-0.5 font-mono text-xs">{keys}</kbd>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
           {/* Info Section */}
           <section>
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -107,7 +160,7 @@ export function SettingsView() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Version</span>
-                  <span className="font-mono">0.1.0</span>
+                  <span className="font-mono">0.2.0</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Plattform</span>
@@ -129,7 +182,7 @@ export function SettingsView() {
                 Docmind benoetigt Ollama fuer die KI-gesteuerte Beantwortung.
                 Installiere Ollama und lade ein Modell:
               </p>
-              <div className="space-y-1 rounded bg-black/30 p-3 font-mono text-xs text-slate-300">
+              <div className="space-y-1 rounded bg-slate-100 dark:bg-black/30 p-3 font-mono text-xs text-slate-600 dark:text-slate-300">
                 <p># 1. Ollama installieren</p>
                 <p>brew install ollama</p>
                 <p># 2. Modell laden</p>

@@ -90,7 +90,7 @@ export function App() {
       {showOnboarding && <OnboardingTour onComplete={handleOnboardingComplete} />}
 
       {/* Sidebar */}
-      <aside className="flex w-16 flex-col items-center border-r border-border bg-slate-950 py-4">
+      <aside className="flex w-16 flex-col items-center border-r border-border bg-slate-100 dark:bg-slate-950 py-4">
         {/* macOS drag region */}
         <div className="drag-region mb-6 h-4 w-full" />
 
