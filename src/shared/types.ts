@@ -97,6 +97,8 @@ export interface ChatSource {
   document_type?: string
 }
 
+export type FeedbackRating = 'positive' | 'negative' | null
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -104,6 +106,7 @@ export interface ChatMessage {
   timestamp: number
   sources?: ChatSource[]
   sessionId?: string
+  feedback?: FeedbackRating
 }
 
 /**

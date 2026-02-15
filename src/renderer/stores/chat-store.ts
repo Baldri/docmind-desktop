@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ChatMessage, ChatSource } from '../../shared/types'
+import type { ChatMessage, ChatSource, FeedbackRating } from '../../shared/types'
 import { friendlyError } from '../lib/error-messages'
 
 interface ChatState {
@@ -10,6 +10,7 @@ interface ChatState {
 
   sendMessage: (content: string) => Promise<void>
   abortStream: () => void
+  setFeedback: (messageId: string, rating: FeedbackRating) => void
   clearMessages: () => void
   clearError: () => void
 }
@@ -141,6 +142,16 @@ export const useChatStore = create<ChatState>((set, get) => {
         cleanupListeners = null
       }
       set({ isStreaming: false })
+    },
+
+    setFeedback: (messageId: string, rating: FeedbackRating) => {
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === messageId
+            ? { ...m, feedback: m.feedback === rating ? null : rating }
+            : m,
+        ),
+      }))
     },
 
     clearMessages: () => {

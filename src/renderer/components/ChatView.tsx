@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Square, Trash2, BookOpen } from 'lucide-react'
+import { Send, Square, Trash2, BookOpen, ThumbsUp, ThumbsDown } from 'lucide-react'
 import { useChatStore } from '../stores/chat-store'
 import type { ChatMessage, ChatSource } from '../../shared/types'
 import ReactMarkdown from 'react-markdown'
@@ -190,39 +190,71 @@ function MessageBubble({
   message: ChatMessage
   isStreaming?: boolean
 }) {
+  const setFeedback = useChatStore((s) => s.setFeedback)
   const isUser = message.role === 'user'
   const showCursor = isStreaming && !isUser
+  const showFeedback = !isUser && !isStreaming && message.content
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-          isUser
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-secondary text-foreground'
-        }`}
-      >
-        {isUser ? (
-          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-        ) : message.content ? (
-          <div className="prose prose-sm prose-invert max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {message.content}
-            </ReactMarkdown>
-            {showCursor && (
-              <span className="inline-block h-4 w-1.5 animate-pulse bg-primary align-text-bottom" />
-            )}
-          </div>
-        ) : showCursor ? (
-          // Empty content + streaming → show blinking cursor only
-          <div className="flex items-center gap-1.5 py-1">
-            <span className="inline-block h-4 w-1.5 animate-pulse bg-primary" />
-          </div>
-        ) : null}
+      <div className="max-w-[85%]">
+        <div
+          className={`rounded-2xl px-4 py-3 ${
+            isUser
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-secondary text-foreground'
+          }`}
+        >
+          {isUser ? (
+            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+          ) : message.content ? (
+            <div className="prose prose-sm prose-invert max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {message.content}
+              </ReactMarkdown>
+              {showCursor && (
+                <span className="inline-block h-4 w-1.5 animate-pulse bg-primary align-text-bottom" />
+              )}
+            </div>
+          ) : showCursor ? (
+            // Empty content + streaming → show blinking cursor only
+            <div className="flex items-center gap-1.5 py-1">
+              <span className="inline-block h-4 w-1.5 animate-pulse bg-primary" />
+            </div>
+          ) : null}
 
-        {/* Sources — shown once streaming completes */}
-        {!isStreaming && message.sources && message.sources.length > 0 && (
-          <SourcesList sources={message.sources} />
+          {/* Sources — shown once streaming completes */}
+          {!isStreaming && message.sources && message.sources.length > 0 && (
+            <SourcesList sources={message.sources} />
+          )}
+        </div>
+
+        {/* Feedback buttons — below assistant bubble */}
+        {showFeedback && (
+          <div className="mt-1 flex items-center gap-1 px-1">
+            <button
+              onClick={() => setFeedback(message.id, 'positive')}
+              className={`rounded p-1 transition-colors ${
+                message.feedback === 'positive'
+                  ? 'text-emerald-400'
+                  : 'text-muted-foreground/40 hover:text-muted-foreground'
+              }`}
+              title="Hilfreiche Antwort"
+            >
+              <ThumbsUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setFeedback(message.id, 'negative')}
+              className={`rounded p-1 transition-colors ${
+                message.feedback === 'negative'
+                  ? 'text-red-400'
+                  : 'text-muted-foreground/40 hover:text-muted-foreground'
+              }`}
+              title="Nicht hilfreich"
+            >
+              <ThumbsDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
         )}
       </div>
     </div>
