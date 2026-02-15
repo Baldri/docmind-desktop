@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Upload,
+  FolderOpen,
   RefreshCw,
   FileText,
   AlertTriangle,
@@ -26,6 +27,7 @@ interface UploadResult {
   canceled: boolean
   count?: number
   message?: string
+  directory?: string
   error?: string
 }
 
@@ -38,6 +40,7 @@ export function DocumentsView() {
   const [stats, setStats] = useState<FileStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
+  const [isUploadingFolder, setIsUploadingFolder] = useState(false)
   const [isRetrying, setIsRetrying] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -85,6 +88,36 @@ export function DocumentsView() {
     }
   }
 
+  const handleUploadFolder = async () => {
+    setIsUploadingFolder(true)
+    setMessage(null)
+    try {
+      const result = await window.electronAPI.documents.uploadFolder() as UploadResult
+      if (result.canceled) {
+        setIsUploadingFolder(false)
+        return
+      }
+      if (result.error) {
+        setMessage({ type: 'error', text: result.error })
+      } else if (result.count === 0) {
+        setMessage({
+          type: 'error',
+          text: result.message || 'Keine unterstuetzten Dateien im Ordner gefunden.',
+        })
+      } else {
+        setMessage({
+          type: 'success',
+          text: `${result.count} Dateien aus Ordner zur Indexierung hinzugefuegt`,
+        })
+        await loadStats()
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: String(error) })
+    } finally {
+      setIsUploadingFolder(false)
+    }
+  }
+
   const handleRetryFailed = async () => {
     setIsRetrying(true)
     setMessage(null)
@@ -118,6 +151,18 @@ export function DocumentsView() {
             Aktualisieren
           </button>
           <button
+            onClick={handleUploadFolder}
+            disabled={isUploadingFolder}
+            className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+          >
+            {isUploadingFolder ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <FolderOpen className="h-3.5 w-3.5" />
+            )}
+            Ordner
+          </button>
+          <button
             onClick={handleUpload}
             disabled={isUploading}
             className="flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
@@ -127,7 +172,7 @@ export function DocumentsView() {
             ) : (
               <Upload className="h-3.5 w-3.5" />
             )}
-            Dateien hinzufuegen
+            Dateien
           </button>
         </div>
       </header>

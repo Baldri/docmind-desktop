@@ -1,8 +1,46 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { readdir, stat } from 'fs/promises'
+import { join, extname } from 'path'
 import { IPC_CHANNELS } from '../shared/types'
 import type { QdrantSidecar } from './services/qdrant-sidecar'
 import type { PythonSidecar } from './services/python-sidecar'
 import type { OllamaChecker } from './services/ollama-checker'
+
+/** Supported file extensions for document indexing */
+const INDEXABLE_EXTENSIONS = new Set([
+  '.pdf', '.docx', '.doc', '.txt', '.md',
+  '.pptx', '.ppt', '.xlsx', '.xls', '.csv',
+  '.html', '.htm',
+])
+
+/**
+ * Recursively collect all indexable files from a directory.
+ * Skips hidden directories (dot-prefixed) and non-indexable files.
+ */
+async function collectIndexableFiles(dirPath: string): Promise<string[]> {
+  const files: string[] = []
+
+  async function walk(dir: string): Promise<void> {
+    const entries = await readdir(dir, { withFileTypes: true })
+    for (const entry of entries) {
+      // Skip hidden directories/files
+      if (entry.name.startsWith('.')) continue
+
+      const fullPath = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        await walk(fullPath)
+      } else if (entry.isFile()) {
+        const ext = extname(entry.name).toLowerCase()
+        if (INDEXABLE_EXTENSIONS.has(ext)) {
+          files.push(fullPath)
+        }
+      }
+    }
+  }
+
+  await walk(dirPath)
+  return files
+}
 
 const RAG_API = 'http://127.0.0.1:8001'
 
@@ -278,6 +316,51 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
       return { canceled: false, ...(indexResult as Record<string, unknown>) }
     } catch (error) {
       console.error('[IPC] Upload/index error:', error)
+      return { canceled: false, count: 0, error: String(error) }
+    }
+  })
+
+  // Upload Folder: opens native directory dialog, recursively collects
+  // indexable files, then triggers indexing via POST /admin/index.
+  ipcMain.handle(IPC_CHANNELS.DOCUMENTS_UPLOAD_FOLDER, async () => {
+    try {
+      const win = BrowserWindow.getFocusedWindow()
+      if (!win) throw new Error('No focused window')
+
+      const result = await dialog.showOpenDialog(win, {
+        title: 'Ordner importieren',
+        properties: ['openDirectory'],
+        message: 'Waehle einen Ordner — alle unterstuetzten Dokumente werden indexiert.',
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { canceled: true, count: 0 }
+      }
+
+      const dirPath = result.filePaths[0]
+      console.log(`[IPC] Scanning directory: ${dirPath}`)
+
+      const filePaths = await collectIndexableFiles(dirPath)
+      console.log(`[IPC] Found ${filePaths.length} indexable files`)
+
+      if (filePaths.length === 0) {
+        return { canceled: false, count: 0, message: 'Keine unterstuetzten Dateien im Ordner gefunden.' }
+      }
+
+      // Trigger indexing via Admin API
+      const indexResult = await postJSON(`${RAG_API}/admin/index`, {
+        file_paths: filePaths,
+        priority: 5,
+      })
+
+      return {
+        canceled: false,
+        count: filePaths.length,
+        directory: dirPath,
+        ...(indexResult as Record<string, unknown>),
+      }
+    } catch (error) {
+      console.error('[IPC] Folder upload/index error:', error)
       return { canceled: false, count: 0, error: String(error) }
     }
   })

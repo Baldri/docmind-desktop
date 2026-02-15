@@ -64,6 +64,10 @@ const api = {
     upload: () =>
       ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_UPLOAD),
 
+    // Opens native directory dialog, recursively scans for indexable files
+    uploadFolder: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_UPLOAD_FOLDER),
+
     getStatus: () =>
       ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_STATUS),
 

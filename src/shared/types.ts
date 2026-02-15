@@ -15,6 +15,7 @@ export const IPC_CHANNELS = {
   // Documents
   DOCUMENTS_LIST: 'documents:list',
   DOCUMENTS_UPLOAD: 'documents:upload',
+  DOCUMENTS_UPLOAD_FOLDER: 'documents:uploadFolder',
   DOCUMENTS_STATUS: 'documents:status',
   DOCUMENTS_REINDEX: 'documents:reindex',
 
