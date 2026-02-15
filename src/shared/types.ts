@@ -18,6 +18,7 @@ export const IPC_CHANNELS = {
   DOCUMENTS_UPLOAD_FOLDER: 'documents:uploadFolder',
   DOCUMENTS_STATUS: 'documents:status',
   DOCUMENTS_REINDEX: 'documents:reindex',
+  DOCUMENTS_INDEX_PATHS: 'documents:indexPaths',
 
   // Settings
   SETTINGS_GET: 'settings:get',

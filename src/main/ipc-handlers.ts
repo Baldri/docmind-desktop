@@ -396,6 +396,36 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
     }
   })
 
+  // Index by paths: accepts file paths directly (used by drag & drop)
+  // Validates extensions before sending to the API.
+  ipcMain.handle(IPC_CHANNELS.DOCUMENTS_INDEX_PATHS, async (_event, paths: string[]) => {
+    try {
+      if (!Array.isArray(paths) || paths.length === 0) {
+        return { count: 0, error: 'Keine Pfade angegeben' }
+      }
+
+      // Filter to only indexable extensions
+      const validPaths = paths.filter((p) => {
+        const ext = extname(p).toLowerCase()
+        return INDEXABLE_EXTENSIONS.has(ext)
+      })
+
+      if (validPaths.length === 0) {
+        return { count: 0, message: 'Keine unterstuetzten Dateitypen in der Auswahl.' }
+      }
+
+      const result = await postJSON(`${RAG_API}/admin/index`, {
+        file_paths: validPaths,
+        priority: 5,
+      })
+
+      return { count: validPaths.length, ...(result as Record<string, unknown>) }
+    } catch (error) {
+      console.error('[IPC] Index paths error:', error)
+      return { count: 0, error: String(error) }
+    }
+  })
+
   // ── Settings ───────────────────────────────────────────────────────
   // MVP: Settings are stored in memory. Later: electron-store or sql.js.
   let settings: Record<string, unknown> = {}

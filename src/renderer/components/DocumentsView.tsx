@@ -36,12 +36,20 @@ interface UploadResult {
  * Shows indexing statistics, allows file upload (triggers indexing),
  * and provides reindex/retry controls.
  */
+/** File extensions supported for document indexing */
+const INDEXABLE_EXTENSIONS = new Set([
+  '.pdf', '.docx', '.doc', '.txt', '.md',
+  '.pptx', '.ppt', '.xlsx', '.xls', '.csv',
+  '.html', '.htm',
+])
+
 export function DocumentsView() {
   const [stats, setStats] = useState<FileStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
   const [isUploadingFolder, setIsUploadingFolder] = useState(false)
   const [isRetrying, setIsRetrying] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const loadStats = useCallback(async () => {
@@ -118,6 +126,68 @@ export function DocumentsView() {
     }
   }
 
+  // ── Drag & Drop handlers ─────────────────────────────────────────
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    setMessage(null)
+
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length === 0) return
+
+    // Electron exposes file.path on File objects
+    const paths = files
+      .map((f) => (f as File & { path?: string }).path)
+      .filter((p): p is string => !!p)
+
+    if (paths.length === 0) {
+      setMessage({ type: 'error', text: 'Dateipfade konnten nicht gelesen werden.' })
+      return
+    }
+
+    // Filter supported extensions client-side for immediate feedback
+    const supported = paths.filter((p) => {
+      const ext = p.slice(p.lastIndexOf('.')).toLowerCase()
+      return INDEXABLE_EXTENSIONS.has(ext)
+    })
+
+    if (supported.length === 0) {
+      setMessage({ type: 'error', text: 'Keine unterstuetzten Dateitypen in der Auswahl.' })
+      return
+    }
+
+    try {
+      setIsUploading(true)
+      const result = await window.electronAPI.documents.indexPaths(supported) as UploadResult
+      if (result.error) {
+        setMessage({ type: 'error', text: result.error })
+      } else {
+        setMessage({
+          type: 'success',
+          text: `${result.count ?? supported.length} Dateien zur Indexierung hinzugefuegt (Drag & Drop)`,
+        })
+        await loadStats()
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: String(error) })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   const handleRetryFailed = async () => {
     setIsRetrying(true)
     setMessage(null)
@@ -137,7 +207,25 @@ export function DocumentsView() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      className="relative flex h-full flex-col"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag & Drop Overlay */}
+      {isDragOver && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+          <div className="rounded-2xl border-2 border-dashed border-primary/50 bg-primary/5 px-12 py-10 text-center">
+            <Upload className="mx-auto mb-3 h-10 w-10 text-primary" />
+            <p className="text-lg font-semibold text-primary">Dateien hier ablegen</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              PDF, DOCX, TXT, MD, PPTX, XLSX, CSV, HTML
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="drag-region flex items-center justify-between border-b border-border px-6 py-3">
         <h1 className="no-drag text-lg font-semibold">Dokumente</h1>

@@ -73,6 +73,10 @@ const api = {
 
     reindex: (fileId?: number) =>
       ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_REINDEX, fileId),
+
+    // Index files by direct paths (used by drag & drop)
+    indexPaths: (paths: string[]) =>
+      ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_INDEX_PATHS, paths),
   },
 
   // ── Settings ────────────────────────────────────────────────────────
