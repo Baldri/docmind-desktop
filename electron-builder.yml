@@ -10,9 +10,11 @@ mac:
   target:
     - dmg
     - zip
-  icon: build/icon.icns
+  icon: build/icon.png
   darkModeSupport: true
   gatekeeperAssess: false
+  # Unsigned for MVP — add identity + notarize for production
+  identity: null
 
 win:
   target:
