@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Square, Trash2, BookOpen, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { Send, Square, Trash2, BookOpen, ThumbsUp, ThumbsDown, ChevronDown, FileText } from 'lucide-react'
 import { useChatStore } from '../stores/chat-store'
 import type { ChatMessage, ChatSource } from '../../shared/types'
 import ReactMarkdown from 'react-markdown'
@@ -261,28 +261,54 @@ function MessageBubble({
   )
 }
 
+/**
+ * Expandable source list — click a source to see the context chunk.
+ * Shows up to 5 sources with file name, score, and domain.
+ */
 function SourcesList({ sources }: { sources: ChatSource[] }) {
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
+
   return (
     <div className="mt-3 border-t border-white/10 pt-2">
-      <p className="mb-1 text-xs font-medium text-muted-foreground">
-        Quellen:
+      <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+        {sources.length} Quelle{sources.length !== 1 ? 'n' : ''}
       </p>
       <div className="space-y-1">
-        {sources.slice(0, 3).map((src, i) => (
-          <div
-            key={i}
-            className="rounded bg-white/5 px-2 py-1 text-xs text-muted-foreground"
-          >
-            {src.file_name || 'Dokument'}
-            {src.score != null && (
-              <span className="ml-1 text-emerald-400">
-                ({(src.score * 100).toFixed(0)}%)
+        {sources.slice(0, 5).map((src, i) => (
+          <div key={i}>
+            {/* Source header — clickable */}
+            <button
+              onClick={() => setExpandedIndex(expandedIndex === i ? null : i)}
+              className="flex w-full items-center gap-2 rounded bg-white/5 px-2 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-white/10"
+            >
+              <FileText className="h-3 w-3 shrink-0 text-primary/60" />
+              <span className="flex-1 truncate">
+                {src.file_name || 'Dokument'}
               </span>
-            )}
-            {src.domain && (
-              <span className="ml-1 text-slate-500">
-                · {src.domain}
-              </span>
+              {src.score != null && (
+                <span className="shrink-0 text-emerald-400">
+                  {(src.score * 100).toFixed(0)}%
+                </span>
+              )}
+              {src.domain && (
+                <span className="shrink-0 text-slate-500 text-[10px]">
+                  {src.domain}
+                </span>
+              )}
+              <ChevronDown
+                className={`h-3 w-3 shrink-0 transition-transform ${
+                  expandedIndex === i ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {/* Expanded content preview */}
+            {expandedIndex === i && src.content && (
+              <div className="mt-1 rounded border border-white/5 bg-white/[0.02] px-3 py-2">
+                <p className="line-clamp-6 whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground/80">
+                  {src.content}
+                </p>
+              </div>
             )}
           </div>
         ))}
