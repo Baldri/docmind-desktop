@@ -6,6 +6,7 @@ import { DocumentsView } from './components/DocumentsView'
 import { SettingsView } from './components/SettingsView'
 import { SetupWizard } from './components/SetupWizard'
 import { ServiceStatus } from './components/ServiceStatus'
+import { ConnectionBanner } from './components/ConnectionBanner'
 import { useServicesStore } from './stores/services-store'
 
 type View = 'chat' | 'search' | 'documents' | 'settings'
@@ -92,6 +93,7 @@ export function App() {
 
       {/* Main Content */}
       <main className="flex flex-1 flex-col overflow-hidden">
+        <ConnectionBanner />
         {activeView === 'chat' && <ChatView />}
         {activeView === 'search' && <SearchView />}
         {activeView === 'documents' && <DocumentsView />}

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { HybridSearchResult } from '../../shared/types'
+import { friendlyError } from '../lib/error-messages'
 
 interface HybridSearchResponse {
   query: string
@@ -46,9 +47,10 @@ export const useSearchStore = create<SearchState>((set) => ({
         isSearching: false,
       })
     } catch (error) {
+      const raw = error instanceof Error ? error.message : 'Suche fehlgeschlagen'
       set({
         isSearching: false,
-        error: error instanceof Error ? error.message : 'Search failed',
+        error: friendlyError(raw),
       })
     }
   },

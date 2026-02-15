@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { ChatMessage, ChatSource } from '../../shared/types'
+import { friendlyError } from '../lib/error-messages'
 
 interface ChatState {
   messages: ChatMessage[]
@@ -73,9 +74,9 @@ export const useChatStore = create<ChatState>((set, get) => {
       cleanup()
     })
 
-    // Error — show error, mark done
+    // Error — show user-friendly error, mark done
     const offError = api.onError((error: string) => {
-      set({ isStreaming: false, error })
+      set({ isStreaming: false, error: friendlyError(error) })
       cleanup()
     })
 
@@ -125,9 +126,10 @@ export const useChatStore = create<ChatState>((set, get) => {
         const { sessionId } = get()
         await window.electronAPI.chat.send(content, sessionId ?? undefined)
       } catch (error) {
+        const raw = error instanceof Error ? error.message : 'Unknown error'
         set({
           isStreaming: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: friendlyError(raw),
         })
       }
     },
