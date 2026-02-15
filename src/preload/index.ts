@@ -1,0 +1,101 @@
+import { contextBridge, ipcRenderer } from 'electron'
+import { IPC_CHANNELS } from '../shared/types'
+import type { SearchOptions, ServiceInfo } from '../shared/types'
+
+/**
+ * Preload script — runs in a sandboxed context with access to Electron APIs.
+ *
+ * Exposes a minimal, type-safe `electronAPI` object to the renderer process
+ * via contextBridge. The renderer NEVER gets direct access to Node.js or
+ * Electron internals.
+ *
+ * Pattern: Each domain (search, chat, documents, settings, services) gets
+ * its own namespace. Methods map 1:1 to IPC channel handlers in ipc-handlers.ts.
+ */
+const api = {
+  // ── Search ──────────────────────────────────────────────────────────
+  search: {
+    hybrid: (query: string, options?: SearchOptions) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SEARCH_HYBRID, query, options),
+
+    semantic: (query: string, options?: SearchOptions) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SEARCH_SEMANTIC, query, options),
+  },
+
+  // ── Chat ────────────────────────────────────────────────────────────
+  chat: {
+    send: (message: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.CHAT_SEND, message),
+
+    abort: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.CHAT_ABORT),
+
+    onChunk: (callback: (chunk: string) => void) => {
+      const listener = (_event: unknown, chunk: string) => callback(chunk)
+      ipcRenderer.on('chat:chunk', listener)
+      return () => ipcRenderer.removeListener('chat:chunk', listener)
+    },
+
+    onComplete: (callback: () => void) => {
+      const listener = () => callback()
+      ipcRenderer.on('chat:complete', listener)
+      return () => ipcRenderer.removeListener('chat:complete', listener)
+    },
+
+    onError: (callback: (error: string) => void) => {
+      const listener = (_event: unknown, error: string) => callback(error)
+      ipcRenderer.on('chat:error', listener)
+      return () => ipcRenderer.removeListener('chat:error', listener)
+    },
+  },
+
+  // ── Documents ───────────────────────────────────────────────────────
+  documents: {
+    list: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_LIST),
+
+    upload: (paths: string[]) =>
+      ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_UPLOAD, paths),
+
+    getStatus: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_STATUS),
+
+    reindex: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_REINDEX),
+  },
+
+  // ── Settings ────────────────────────────────────────────────────────
+  settings: {
+    get: (key?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET, key),
+
+    set: (key: string, value: unknown) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, key, value),
+  },
+
+  // ── Services ────────────────────────────────────────────────────────
+  services: {
+    getStatus: (): Promise<ServiceInfo[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SERVICES_STATUS),
+
+    restart: (serviceName: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.SERVICES_RESTART, serviceName),
+  },
+
+  // ── Platform Info ───────────────────────────────────────────────────
+  platform: process.platform as 'darwin' | 'win32' | 'linux',
+}
+
+// Expose to renderer via contextBridge
+if (process.contextIsolated) {
+  try {
+    contextBridge.exposeInMainWorld('electronAPI', api)
+  } catch (error) {
+    console.error('Failed to expose electronAPI:', error)
+  }
+} else {
+  // Fallback for non-isolated contexts (should not happen in production)
+  (window as unknown as Record<string, unknown>).electronAPI = api
+}
+
+export type ElectronAPI = typeof api
