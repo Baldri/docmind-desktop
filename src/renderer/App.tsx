@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { MessageSquare, Search, Settings } from 'lucide-react'
 import { ChatView } from './components/ChatView'
 import { SearchView } from './components/SearchView'
 import { SettingsView } from './components/SettingsView'
+import { SetupWizard } from './components/SetupWizard'
 import { ServiceStatus } from './components/ServiceStatus'
 import { useServicesStore } from './stores/services-store'
 
@@ -14,16 +15,47 @@ const NAV_ITEMS: { id: View; label: string; icon: typeof MessageSquare }[] = [
   { id: 'settings', label: 'Einstellungen', icon: Settings },
 ]
 
+/**
+ * Root component.
+ *
+ * On first launch (or when critical services are missing), shows the SetupWizard.
+ * Once dismissed, shows the main app layout with sidebar navigation.
+ * The wizard can also be bypassed via "Trotzdem starten".
+ */
 export function App() {
   const [activeView, setActiveView] = useState<View>('chat')
+  const [showWizard, setShowWizard] = useState(true)
   const checkStatus = useServicesStore((s) => s.checkStatus)
+  const services = useServicesStore((s) => s.services)
 
-  // Poll service status every 10 seconds
+  // Initial check to decide if wizard is needed
   useEffect(() => {
     checkStatus()
+  }, [checkStatus])
+
+  // Auto-skip wizard if all services are already healthy
+  useEffect(() => {
+    const allHealthy = services.every((s) => s.status === 'healthy')
+    if (allHealthy) {
+      setShowWizard(false)
+    }
+  }, [services])
+
+  // Poll service status every 10 seconds (main app only)
+  useEffect(() => {
+    if (showWizard) return // wizard has its own polling
     const interval = setInterval(checkStatus, 10_000)
     return () => clearInterval(interval)
-  }, [checkStatus])
+  }, [checkStatus, showWizard])
+
+  const handleWizardReady = useCallback(() => {
+    setShowWizard(false)
+  }, [])
+
+  // Show wizard on first launch or when services need setup
+  if (showWizard) {
+    return <SetupWizard onReady={handleWizardReady} />
+  }
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
