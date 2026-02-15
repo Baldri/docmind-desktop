@@ -5,6 +5,7 @@ copyright: Copyright 2026 digital nalu GmbH
 directories:
   output: release
 
+# ── macOS ──────────────────────────────────────────────────────────────
 mac:
   category: public.app-category.education
   target:
@@ -13,21 +14,35 @@ mac:
   icon: build/icon.png
   darkModeSupport: true
   gatekeeperAssess: false
-  # Unsigned for MVP — add identity + notarize for production
+  # Code signing: set CSC_LINK + CSC_KEY_PASSWORD env vars in CI.
+  # When CSC_LINK is absent, electron-builder skips signing automatically.
+  # Remove 'identity: null' once certificates are configured.
   identity: null
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
 
+# Notarization: requires APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD,
+# and APPLE_TEAM_ID env vars. Skipped when not set.
+afterSign: scripts/notarize.js
+
+# ── Windows ──────────────────────────────────────────────────────────
 win:
   target:
     - nsis
     - portable
   icon: build/icon.ico
+  # Code signing: set WIN_CSC_LINK + WIN_CSC_KEY_PASSWORD env vars in CI.
+  # When not set, electron-builder produces unsigned binaries.
 
+# ── Linux ──────────────────────────────────────────────────────────────
 linux:
   target:
     - AppImage
     - deb
   category: Education
 
+# ── Files & Resources ────────────────────────────────────────────────
 files:
   - dist/**/*
   - package.json
@@ -42,11 +57,13 @@ extraMetadata:
   name: Docmind
   productName: Docmind
 
+# ── Publishing ─────────────────────────────────────────────────────────
 publish:
   provider: github
   owner: Baldri
   repo: docmind-desktop
 
+# ── Installers ─────────────────────────────────────────────────────────
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
