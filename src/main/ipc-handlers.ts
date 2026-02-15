@@ -115,11 +115,34 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
     }
   })
 
-  // ── Chat ───────────────────────────────────────────────────────────
-  // POST /api/v1/chat/message
+  // ── Chat (Streaming via SSE) ──────────────────────────────────────
+  // POST /api/v1/chat/stream (SSE endpoint)
   // Body: { message, session_id?, include_sources, max_context_chunks }
-  // Returns: { session_id, message: { role, content, timestamp, sources }, history_length }
-  ipcMain.handle(IPC_CHANNELS.CHAT_SEND, async (_event, message: string, sessionId?: string) => {
+  // SSE events:
+  //   {"type": "token", "content": "..."} — incremental tokens
+  //   {"type": "sources", "sources": [...]} — source citations
+  //   {"type": "done", "session_id": "..."} — stream complete
+  //   {"type": "error", "content": "..."} — error
+  //
+  // Main process reads SSE stream and forwards events to renderer via
+  // webContents.send(). This keeps the renderer sandboxed while enabling
+  // real-time token streaming.
+
+  let activeAbortController: AbortController | null = null
+
+  ipcMain.handle(IPC_CHANNELS.CHAT_SEND, async (event, message: string, sessionId?: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return { error: 'No window' }
+
+    // Abort any previous stream
+    if (activeAbortController) {
+      activeAbortController.abort()
+      activeAbortController = null
+    }
+
+    const controller = new AbortController()
+    activeAbortController = controller
+
     try {
       const body: Record<string, unknown> = {
         message,
@@ -128,22 +151,81 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
       }
       if (sessionId) body.session_id = sessionId
 
-      const result = await postJSON(`${DASHBOARD_API}/chat/message`, body) as Record<string, unknown>
+      const response = await fetch(`${DASHBOARD_API}/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
 
-      // Normalize response for the renderer:
-      // API returns { session_id, message: { role, content, sources }, history_length }
-      // Renderer expects { content, sources, session_id }
-      const msg = result.message as Record<string, unknown> | undefined
-      return {
-        content: msg?.content ?? '',
-        sources: msg?.sources ?? [],
-        sessionId: result.session_id,
-        historyLength: result.history_length,
+      if (!response.ok) {
+        const text = await response.text().catch(() => '')
+        throw new Error(`HTTP ${response.status}: ${text}`)
       }
+
+      if (!response.body) {
+        throw new Error('No response body for SSE stream')
+      }
+
+      // Read SSE stream and forward events to renderer
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        // Parse SSE lines: each event is "data: {...}\n\n"
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? '' // keep incomplete line in buffer
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed.startsWith('data: ')) continue
+
+          const jsonStr = trimmed.slice(6) // remove "data: " prefix
+          try {
+            const event_data = JSON.parse(jsonStr) as Record<string, unknown>
+
+            if (event_data.type === 'token') {
+              win.webContents.send('chat:chunk', event_data.content)
+            } else if (event_data.type === 'sources') {
+              win.webContents.send('chat:sources', event_data.sources)
+            } else if (event_data.type === 'done') {
+              win.webContents.send('chat:complete', event_data.session_id)
+            } else if (event_data.type === 'error') {
+              win.webContents.send('chat:error', event_data.content)
+            }
+          } catch {
+            // skip malformed JSON lines
+          }
+        }
+      }
+
+      return { streaming: true }
     } catch (error) {
-      console.error('[IPC] Chat error:', error)
-      return { content: '', sources: [], error: String(error) }
+      if ((error as Error).name === 'AbortError') {
+        return { aborted: true }
+      }
+      console.error('[IPC] Chat stream error:', error)
+      win.webContents.send('chat:error', String(error))
+      return { error: String(error) }
+    } finally {
+      if (activeAbortController === controller) {
+        activeAbortController = null
+      }
     }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.CHAT_ABORT, () => {
+    if (activeAbortController) {
+      activeAbortController.abort()
+      activeAbortController = null
+    }
+    return true
   })
 
   // ── Documents ──────────────────────────────────────────────────────

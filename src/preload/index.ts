@@ -36,8 +36,14 @@ const api = {
       return () => ipcRenderer.removeListener('chat:chunk', listener)
     },
 
-    onComplete: (callback: () => void) => {
-      const listener = () => callback()
+    onSources: (callback: (sources: unknown[]) => void) => {
+      const listener = (_event: unknown, sources: unknown[]) => callback(sources)
+      ipcRenderer.on('chat:sources', listener)
+      return () => ipcRenderer.removeListener('chat:sources', listener)
+    },
+
+    onComplete: (callback: (sessionId?: string) => void) => {
+      const listener = (_event: unknown, sessionId?: string) => callback(sessionId)
       ipcRenderer.on('chat:complete', listener)
       return () => ipcRenderer.removeListener('chat:complete', listener)
     },

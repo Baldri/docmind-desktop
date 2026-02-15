@@ -1,13 +1,14 @@
 import { create } from 'zustand'
-import type { ChatMessage, ChatResponse, ChatSource } from '../../shared/types'
+import type { ChatMessage, ChatSource } from '../../shared/types'
 
 interface ChatState {
   messages: ChatMessage[]
-  isLoading: boolean
+  isStreaming: boolean
   error: string | null
   sessionId: string | null
 
   sendMessage: (content: string) => Promise<void>
+  abortStream: () => void
   clearMessages: () => void
   clearError: () => void
 }
@@ -18,58 +19,136 @@ function createId(): string {
   return `msg_${Date.now()}_${++messageCounter}`
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
-  messages: [],
-  isLoading: false,
-  error: null,
-  sessionId: null,
+/**
+ * Chat store with SSE streaming support.
+ *
+ * Flow:
+ * 1. User sends message → store adds user msg + empty assistant msg
+ * 2. IPC handler opens SSE stream to /api/v1/chat/stream
+ * 3. Main process forwards events: chat:chunk, chat:sources, chat:complete, chat:error
+ * 4. Store updates the assistant message in-place as tokens arrive
+ * 5. On complete: mark done, persist sessionId
+ */
+export const useChatStore = create<ChatState>((set, get) => {
+  // Track active listener cleanup functions
+  let cleanupListeners: (() => void) | null = null
 
-  sendMessage: async (content: string) => {
-    const userMessage: ChatMessage = {
-      id: createId(),
-      role: 'user',
-      content,
-      timestamp: Date.now(),
+  function setupStreamListeners(assistantMsgId: string) {
+    // Remove previous listeners
+    if (cleanupListeners) {
+      cleanupListeners()
+      cleanupListeners = null
     }
 
-    set((state) => ({
-      messages: [...state.messages, userMessage],
-      isLoading: true,
-      error: null,
-    }))
+    const api = window.electronAPI.chat
 
-    try {
-      // Pass existing sessionId for conversation continuity
-      const { sessionId } = get()
-      const response = await window.electronAPI.chat.send(content, sessionId ?? undefined) as ChatResponse
+    // Token chunk — append to assistant message content
+    const offChunk = api.onChunk((chunk: string) => {
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === assistantMsgId
+            ? { ...m, content: m.content + chunk }
+            : m,
+        ),
+      }))
+    })
 
-      if (response.error) {
-        throw new Error(response.error)
+    // Sources — attach to assistant message
+    const offSources = api.onSources((sources: unknown[]) => {
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === assistantMsgId
+            ? { ...m, sources: sources as ChatSource[] }
+            : m,
+        ),
+      }))
+    })
+
+    // Stream complete — save sessionId, mark done
+    const offComplete = api.onComplete((sessionId?: string) => {
+      set((state) => ({
+        isStreaming: false,
+        sessionId: sessionId ?? state.sessionId,
+      }))
+      cleanup()
+    })
+
+    // Error — show error, mark done
+    const offError = api.onError((error: string) => {
+      set({ isStreaming: false, error })
+      cleanup()
+    })
+
+    function cleanup() {
+      offChunk()
+      offSources()
+      offComplete()
+      offError()
+      cleanupListeners = null
+    }
+
+    cleanupListeners = cleanup
+  }
+
+  return {
+    messages: [],
+    isStreaming: false,
+    error: null,
+    sessionId: null,
+
+    sendMessage: async (content: string) => {
+      const userMessage: ChatMessage = {
+        id: createId(),
+        role: 'user',
+        content,
+        timestamp: Date.now(),
       }
 
+      // Create empty assistant message that will be filled by streaming tokens
       const assistantMessage: ChatMessage = {
         id: createId(),
         role: 'assistant',
-        content: response.content || '',
+        content: '',
         timestamp: Date.now(),
-        sources: (response.sources ?? []) as ChatSource[],
-        sessionId: response.sessionId,
       }
 
       set((state) => ({
-        messages: [...state.messages, assistantMessage],
-        isLoading: false,
-        // Persist sessionId for multi-turn conversations
-        sessionId: response.sessionId ?? state.sessionId,
+        messages: [...state.messages, userMessage, assistantMessage],
+        isStreaming: true,
+        error: null,
       }))
-    } catch (error) {
-      set({
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-    }
-  },
 
-  clearMessages: () => set({ messages: [], error: null, sessionId: null }),
-  clearError: () => set({ error: null }),
-}))
+      // Wire up SSE event listeners before triggering the stream
+      setupStreamListeners(assistantMessage.id)
+
+      try {
+        const { sessionId } = get()
+        await window.electronAPI.chat.send(content, sessionId ?? undefined)
+      } catch (error) {
+        set({
+          isStreaming: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
+    },
+
+    abortStream: () => {
+      window.electronAPI.chat.abort()
+      if (cleanupListeners) {
+        cleanupListeners()
+        cleanupListeners = null
+      }
+      set({ isStreaming: false })
+    },
+
+    clearMessages: () => {
+      if (cleanupListeners) {
+        cleanupListeners()
+        cleanupListeners = null
+      }
+      set({ messages: [], error: null, sessionId: null, isStreaming: false })
+    },
+
+    clearError: () => set({ error: null }),
+  }
+})

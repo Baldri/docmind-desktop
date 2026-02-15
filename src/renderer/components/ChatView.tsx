@@ -1,23 +1,36 @@
-import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Trash2, BookOpen } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { Send, Square, Trash2, BookOpen } from 'lucide-react'
 import { useChatStore } from '../stores/chat-store'
 import type { ChatMessage, ChatSource } from '../../shared/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 /**
- * Main chat interface — send questions, get RAG-augmented answers.
- * Shows source documents for each answer.
+ * Main chat interface with SSE streaming support.
+ *
+ * Streaming flow:
+ * 1. User sends message → store creates empty assistant bubble
+ * 2. Tokens arrive via SSE → assistant bubble grows in real-time
+ * 3. Blinking cursor (▊) shows active streaming
+ * 4. Stop button aborts the stream mid-generation
  */
 export function ChatView() {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const { messages, isLoading, error, sendMessage, clearMessages, clearError } =
-    useChatStore()
+  const {
+    messages,
+    isStreaming,
+    error,
+    sendMessage,
+    abortStream,
+    clearMessages,
+    clearError,
+  } = useChatStore()
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages or streaming tokens
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -27,10 +40,22 @@ export function ChatView() {
     inputRef.current?.focus()
   }, [])
 
+  // Auto-resize textarea based on content
+  const autoResize = useCallback(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+  }, [])
+
   const handleSubmit = async () => {
     const trimmed = input.trim()
-    if (!trimmed || isLoading) return
+    if (!trimmed || isStreaming) return
     setInput('')
+    // Reset textarea height after clearing
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'
+    }
     await sendMessage(trimmed)
   }
 
@@ -46,15 +71,27 @@ export function ChatView() {
       {/* Header */}
       <header className="drag-region flex items-center justify-between border-b border-border px-6 py-3">
         <h1 className="no-drag text-lg font-semibold">Chat</h1>
-        {messages.length > 0 && (
-          <button
-            onClick={clearMessages}
-            className="no-drag flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
-            title="Verlauf loeschen"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        )}
+        <div className="no-drag flex items-center gap-2">
+          {isStreaming && (
+            <button
+              onClick={abortStream}
+              className="flex items-center gap-1 rounded bg-red-500/10 px-2 py-1 text-xs text-red-400 hover:bg-red-500/20"
+              title="Antwort stoppen"
+            >
+              <Square className="h-3 w-3" />
+              Stopp
+            </button>
+          )}
+          {messages.length > 0 && (
+            <button
+              onClick={clearMessages}
+              className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+              title="Verlauf loeschen"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Messages */}
@@ -64,14 +101,16 @@ export function ChatView() {
         ) : (
           <div className="mx-auto max-w-3xl space-y-6">
             {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                isStreaming={
+                  isStreaming &&
+                  msg.role === 'assistant' &&
+                  msg.id === messages[messages.length - 1]?.id
+                }
+              />
             ))}
-            {isLoading && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Denke nach...</span>
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
         )}
@@ -93,24 +132,34 @@ export function ChatView() {
           <textarea
             ref={inputRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value)
+              autoResize()
+            }}
             onKeyDown={handleKeyDown}
             placeholder="Frage stellen..."
             rows={1}
-            className="flex-1 resize-none rounded-lg border border-border bg-secondary px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            disabled={isStreaming}
+            className="flex-1 resize-none rounded-lg border border-border bg-secondary px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
             style={{ minHeight: '44px', maxHeight: '200px' }}
           />
-          <button
-            onClick={handleSubmit}
-            disabled={!input.trim() || isLoading}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
+          {isStreaming ? (
+            <button
+              onClick={abortStream}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-red-500/80 text-white transition-colors hover:bg-red-500"
+              title="Stopp"
+            >
+              <Square className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={!input.trim()}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
               <Send className="h-4 w-4" />
-            )}
-          </button>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -134,8 +183,15 @@ function EmptyState() {
   )
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+  message,
+  isStreaming = false,
+}: {
+  message: ChatMessage
+  isStreaming?: boolean
+}) {
   const isUser = message.role === 'user'
+  const showCursor = isStreaming && !isUser
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -148,16 +204,24 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       >
         {isUser ? (
           <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-        ) : (
+        ) : message.content ? (
           <div className="prose prose-sm prose-invert max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {message.content}
             </ReactMarkdown>
+            {showCursor && (
+              <span className="inline-block h-4 w-1.5 animate-pulse bg-primary align-text-bottom" />
+            )}
           </div>
-        )}
+        ) : showCursor ? (
+          // Empty content + streaming → show blinking cursor only
+          <div className="flex items-center gap-1.5 py-1">
+            <span className="inline-block h-4 w-1.5 animate-pulse bg-primary" />
+          </div>
+        ) : null}
 
-        {/* Sources */}
-        {message.sources && message.sources.length > 0 && (
+        {/* Sources — shown once streaming completes */}
+        {!isStreaming && message.sources && message.sources.length > 0 && (
           <SourcesList sources={message.sources} />
         )}
       </div>
