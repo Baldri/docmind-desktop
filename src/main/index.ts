@@ -160,9 +160,21 @@ app.on('before-quit', (event) => {
 })
 
 // ── Error Handling ───────────────────────────────────────────────────────
+// In production, uncaught exceptions would silently crash — the user sees
+// only a frozen or blank window. Show a native error dialog before exiting
+// so they at least know what happened.
 
 process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error)
+
+  if (app.isPackaged) {
+    const { dialog: errorDialog } = require('electron')
+    errorDialog.showErrorBox(
+      'Docmind — Unerwarteter Fehler',
+      `Ein unerwarteter Fehler ist aufgetreten:\n\n${error.message}\n\nDocmind wird beendet. Bitte starte die App neu.`,
+    )
+    app.exit(1)
+  }
 })
 
 process.on('unhandledRejection', (reason, promise) => {

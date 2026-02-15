@@ -7,15 +7,15 @@
 
 const ERROR_PATTERNS: [RegExp, string][] = [
   // Connection failures
-  [/fetch failed|ECONNREFUSED|ENOTFOUND/i, 'Der RAG-Service ist nicht erreichbar. Prüfe ob alle Services laufen.'],
+  [/fetch failed|ECONNREFUSED|ENOTFOUND/i, 'Der RAG-Service ist nicht erreichbar. Pruefe ob alle Services laufen.'],
   [/network|ENETUNREACH/i, 'Netzwerkfehler — keine Verbindung zum lokalen Service.'],
 
   // HTTP errors
-  [/HTTP 404/i, 'Endpunkt nicht gefunden — die RAG-API Version stimmt möglicherweise nicht.'],
+  [/HTTP 404/i, 'Endpunkt nicht gefunden — die RAG-API Version stimmt moeglicherweise nicht.'],
   [/HTTP 500/i, 'Interner Serverfehler. Starte den Python-Service neu.'],
-  [/HTTP 502|HTTP 503/i, 'Service vorübergehend nicht verfügbar. Versuche es in ein paar Sekunden erneut.'],
-  [/HTTP 408|timeout/i, 'Zeitüberschreitung — die Anfrage hat zu lange gedauert.'],
-  [/HTTP 422/i, 'Ungültige Anfrage — die Parameter werden nicht akzeptiert.'],
+  [/HTTP 502|HTTP 503/i, 'Service voruebergehend nicht verfuegbar. Versuche es in ein paar Sekunden erneut.'],
+  [/HTTP 408|timeout/i, 'Zeitueberschreitung — die Anfrage hat zu lange gedauert.'],
+  [/HTTP 422/i, 'Ungueltige Anfrage — die Parameter werden nicht akzeptiert.'],
 
   // Ollama specific
   [/ollama/i, 'Ollama ist nicht erreichbar. Ist Ollama gestartet?'],

@@ -25,7 +25,7 @@ const STEPS: TourStep[] = [
     icon: Sparkles,
     title: 'Willkommen bei Docmind',
     description:
-      'Docmind ist dein intelligenter Assistent für Dokumente. Importiere Vorlesungsmaterialien, Papers oder Notizen — und stelle Fragen in natürlicher Sprache.',
+      'Docmind ist dein intelligenter Assistent fuer Dokumente. Importiere Vorlesungsmaterialien, Papers oder Notizen — und stelle Fragen in natuerlicher Sprache.',
     color: 'text-primary',
   },
   {
@@ -69,7 +69,7 @@ export function OnboardingTour({ onComplete }: OnboardingTourProps) {
         <button
           onClick={onComplete}
           className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
-          title="Überspringen"
+          title="Ueberspringen"
         >
           <X className="h-4 w-4" />
         </button>

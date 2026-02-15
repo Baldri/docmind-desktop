@@ -255,12 +255,21 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
       const STREAM_TIMEOUT_MS = 30_000
 
       while (true) {
+        // Timeout with cleanup: clear the timer after every successful read
+        // to prevent timer accumulation during long streaming sessions.
+        let timeoutId: ReturnType<typeof setTimeout> | undefined
         const readPromise = reader.read()
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('SSE stream timeout: no data for 30s')), STREAM_TIMEOUT_MS),
-        )
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('SSE stream timeout: no data for 30s')), STREAM_TIMEOUT_MS)
+        })
 
-        const { done, value } = await Promise.race([readPromise, timeoutPromise])
+        let result: { done: boolean; value?: Uint8Array }
+        try {
+          result = await Promise.race([readPromise, timeoutPromise])
+        } finally {
+          clearTimeout(timeoutId)
+        }
+        const { done, value } = result
         if (done) break
 
         buffer += decoder.decode(value, { stream: true })
@@ -483,6 +492,17 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
 
   // ── Settings ───────────────────────────────────────────────────────
   // MVP: Settings are stored in memory. Later: electron-store or sql.js.
+  // Allowlist prevents renderer exploits from writing arbitrary keys
+  // (e.g. injecting a malicious pythonPath).
+  const ALLOWED_SETTINGS = new Set<string>([
+    'ollamaUrl',
+    'ollamaModel',
+    'pythonPath',
+    'ragWissenPath',
+    'watchDirectories',
+    'theme',
+  ])
+
   let settings: Record<string, unknown> = {}
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, (_event, key?: string) => {
@@ -491,6 +511,10 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, (_event, key: string, value: unknown) => {
+    if (!ALLOWED_SETTINGS.has(key)) {
+      console.warn(`[Settings] Rejected write to unknown key: ${key}`)
+      return false
+    }
     settings[key] = value
     return true
   })

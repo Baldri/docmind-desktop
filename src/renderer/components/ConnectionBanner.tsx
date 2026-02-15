@@ -31,7 +31,7 @@ export function ConnectionBanner() {
       <div className="flex items-center gap-2">
         <AlertTriangle className="h-4 w-4 shrink-0" />
         <span>
-          {names} nicht erreichbar — Suche und Chat funktionieren möglicherweise
+          {names} nicht erreichbar — Suche und Chat funktionieren moeglicherweise
           nicht.
         </span>
       </div>
@@ -41,7 +41,7 @@ export function ConnectionBanner() {
         className="flex items-center gap-1 rounded px-2 py-0.5 text-xs hover:bg-amber-500/10"
       >
         <RefreshCw className={`h-3 w-3 ${isChecking ? 'animate-spin' : ''}`} />
-        Prüfen
+        Pruefen
       </button>
     </div>
   )

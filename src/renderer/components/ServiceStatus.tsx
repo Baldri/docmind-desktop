@@ -47,7 +47,7 @@ export function ServiceStatus() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="group flex items-center justify-center p-2"
-        title={allHealthy ? 'Alle Services verbunden' : 'Service-Status prüfen'}
+        title={allHealthy ? 'Alle Services verbunden' : 'Service-Status pruefen'}
       >
         <div className={`h-3 w-3 rounded-full ${aggregateColor} transition-colors`} />
       </button>
