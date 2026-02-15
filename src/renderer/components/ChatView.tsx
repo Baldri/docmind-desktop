@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Loader2, Trash2, BookOpen } from 'lucide-react'
 import { useChatStore } from '../stores/chat-store'
-import type { ChatMessage } from '../../shared/types'
+import type { ChatMessage, ChatSource } from '../../shared/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -158,27 +158,38 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
         {/* Sources */}
         {message.sources && message.sources.length > 0 && (
-          <div className="mt-3 border-t border-white/10 pt-2">
-            <p className="mb-1 text-xs font-medium text-muted-foreground">
-              Quellen:
-            </p>
-            <div className="space-y-1">
-              {message.sources.slice(0, 3).map((src, i) => (
-                <div
-                  key={i}
-                  className="rounded bg-white/5 px-2 py-1 text-xs text-muted-foreground"
-                >
-                  {src.metadata?.filename || src.metadata?.source || 'Dokument'}
-                  {src.score && (
-                    <span className="ml-1 text-emerald-400">
-                      ({(src.score * 100).toFixed(0)}%)
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+          <SourcesList sources={message.sources} />
         )}
+      </div>
+    </div>
+  )
+}
+
+function SourcesList({ sources }: { sources: ChatSource[] }) {
+  return (
+    <div className="mt-3 border-t border-white/10 pt-2">
+      <p className="mb-1 text-xs font-medium text-muted-foreground">
+        Quellen:
+      </p>
+      <div className="space-y-1">
+        {sources.slice(0, 3).map((src, i) => (
+          <div
+            key={i}
+            className="rounded bg-white/5 px-2 py-1 text-xs text-muted-foreground"
+          >
+            {src.file_name || 'Dokument'}
+            {src.score != null && (
+              <span className="ml-1 text-emerald-400">
+                ({(src.score * 100).toFixed(0)}%)
+              </span>
+            )}
+            {src.domain && (
+              <span className="ml-1 text-slate-500">
+                · {src.domain}
+              </span>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )

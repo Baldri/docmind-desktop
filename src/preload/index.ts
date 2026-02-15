@@ -24,8 +24,8 @@ const api = {
 
   // ── Chat ────────────────────────────────────────────────────────────
   chat: {
-    send: (message: string) =>
-      ipcRenderer.invoke(IPC_CHANNELS.CHAT_SEND, message),
+    send: (message: string, sessionId?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.CHAT_SEND, message, sessionId),
 
     abort: () =>
       ipcRenderer.invoke(IPC_CHANNELS.CHAT_ABORT),

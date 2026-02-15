@@ -6,6 +6,9 @@ import type { OllamaChecker } from './services/ollama-checker'
 
 const RAG_API = 'http://127.0.0.1:8001'
 
+// Dashboard API uses /api/v1 prefix (hybrid search, chat with sessions)
+const DASHBOARD_API = `${RAG_API}/api/v1`
+
 interface ServiceDeps {
   qdrant: QdrantSidecar
   python: PythonSidecar
@@ -13,11 +16,40 @@ interface ServiceDeps {
 }
 
 /**
+ * Helper to make JSON POST requests to the RAG-Wissen API.
+ * Handles auth bypass (AUTH_REQUIRED=false is set by PythonSidecar).
+ */
+async function postJSON(url: string, body: Record<string, unknown>): Promise<unknown> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(`HTTP ${response.status}: ${text}`)
+  }
+  return response.json()
+}
+
+async function getJSON(url: string): Promise<unknown> {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
  * Registers all IPC handlers.
  *
- * Each handler bridges the Renderer (React) to the Main process services.
- * The Python RAG-Wissen API does the heavy lifting — most IPC handlers
- * simply proxy HTTP requests to it.
+ * Endpoint mapping (RAG-Wissen API):
+ *   POST /api/v1/search/hybrid  → Hybrid search (BM25 + semantic)
+ *   POST /search                → Semantic-only search
+ *   POST /api/v1/chat/message   → Chat with RAG context + sources
+ *   GET  /stats                 → Collection stats
+ *   GET  /health                → Health check
+ *   GET  /api/v1/files          → Document list
  */
 export function registerIPCHandlers(deps: ServiceDeps): void {
   const { qdrant, python, ollama } = deps
@@ -42,76 +74,97 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
     return false
   })
 
-  // ── Search ─────────────────────────────────────────────────────────
+  // ── Search (Hybrid) ────────────────────────────────────────────────
+  // POST /api/v1/search/hybrid
+  // Body: { query, limit, keyword_weight, semantic_weight, domain?, language?, document_type? }
+  // Returns: { query, total_results, keyword_weight, semantic_weight, results: [...] }
   ipcMain.handle(IPC_CHANNELS.SEARCH_HYBRID, async (_event, query: string, options?: Record<string, unknown>) => {
     try {
-      const params = new URLSearchParams({ query })
-      if (options?.limit) params.set('limit', String(options.limit))
-      if (options?.keywordWeight) params.set('keyword_weight', String(options.keywordWeight))
-      if (options?.semanticWeight) params.set('semantic_weight', String(options.semanticWeight))
+      const body: Record<string, unknown> = {
+        query,
+        limit: options?.limit ?? 10,
+        keyword_weight: options?.keywordWeight ?? 0.3,
+        semantic_weight: options?.semanticWeight ?? 0.7,
+      }
+      if (options?.domain) body.domain = options.domain
+      if (options?.language) body.language = options.language
 
-      const response = await fetch(`${RAG_API}/api/search/hybrid?${params}`)
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      return await response.json()
+      const result = await postJSON(`${DASHBOARD_API}/search/hybrid`, body)
+      return result
     } catch (error) {
-      console.error('[IPC] Search error:', error)
-      return { results: [], error: String(error) }
+      console.error('[IPC] Hybrid search error:', error)
+      return { results: [], total_results: 0, error: String(error) }
     }
   })
 
+  // ── Search (Semantic) ──────────────────────────────────────────────
+  // POST /search (base API, semantic-only)
+  // Body: { query, limit, file_types? }
+  // Returns: { query, results: [...], total_results, search_time_ms }
   ipcMain.handle(IPC_CHANNELS.SEARCH_SEMANTIC, async (_event, query: string, options?: Record<string, unknown>) => {
     try {
-      const params = new URLSearchParams({ query })
-      if (options?.limit) params.set('limit', String(options.limit))
-
-      const response = await fetch(`${RAG_API}/api/search/semantic?${params}`)
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      return await response.json()
+      const body: Record<string, unknown> = {
+        query,
+        limit: options?.limit ?? 10,
+      }
+      const result = await postJSON(`${RAG_API}/search`, body)
+      return result
     } catch (error) {
       console.error('[IPC] Semantic search error:', error)
-      return { results: [], error: String(error) }
+      return { results: [], total_results: 0, error: String(error) }
     }
   })
 
   // ── Chat ───────────────────────────────────────────────────────────
-  ipcMain.handle(IPC_CHANNELS.CHAT_SEND, async (_event, message: string) => {
+  // POST /api/v1/chat/message
+  // Body: { message, session_id?, include_sources, max_context_chunks }
+  // Returns: { session_id, message: { role, content, timestamp, sources }, history_length }
+  ipcMain.handle(IPC_CHANNELS.CHAT_SEND, async (_event, message: string, sessionId?: string) => {
     try {
-      const response = await fetch(`${RAG_API}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message,
-          include_sources: true,
-          max_context_chunks: 5,
-        }),
-      })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      return await response.json()
+      const body: Record<string, unknown> = {
+        message,
+        include_sources: true,
+        max_context_chunks: 5,
+      }
+      if (sessionId) body.session_id = sessionId
+
+      const result = await postJSON(`${DASHBOARD_API}/chat/message`, body) as Record<string, unknown>
+
+      // Normalize response for the renderer:
+      // API returns { session_id, message: { role, content, sources }, history_length }
+      // Renderer expects { content, sources, session_id }
+      const msg = result.message as Record<string, unknown> | undefined
+      return {
+        content: msg?.content ?? '',
+        sources: msg?.sources ?? [],
+        sessionId: result.session_id,
+        historyLength: result.history_length,
+      }
     } catch (error) {
       console.error('[IPC] Chat error:', error)
-      return { content: '', error: String(error) }
+      return { content: '', sources: [], error: String(error) }
     }
   })
 
   // ── Documents ──────────────────────────────────────────────────────
+  // GET /api/v1/files (Dashboard API)
   ipcMain.handle(IPC_CHANNELS.DOCUMENTS_LIST, async () => {
     try {
-      const response = await fetch(`${RAG_API}/api/documents`)
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      return await response.json()
+      const result = await getJSON(`${DASHBOARD_API}/files`)
+      return result
     } catch (error) {
       console.error('[IPC] Documents list error:', error)
-      return { documents: [], error: String(error) }
+      return { files: [], error: String(error) }
     }
   })
 
+  // GET /stats (Base API)
   ipcMain.handle(IPC_CHANNELS.DOCUMENTS_STATUS, async () => {
     try {
-      const response = await fetch(`${RAG_API}/api/status`)
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      return await response.json()
+      const result = await getJSON(`${RAG_API}/stats`)
+      return result
     } catch (error) {
-      console.error('[IPC] Status error:', error)
+      console.error('[IPC] Stats error:', error)
       return { error: String(error) }
     }
   })

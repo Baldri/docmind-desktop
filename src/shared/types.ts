@@ -47,33 +47,73 @@ export interface SearchOptions {
   limit?: number
   keywordWeight?: number
   semanticWeight?: number
+  domain?: string
+  language?: string
 }
 
-export interface SearchResult {
-  id: string
+/**
+ * Hybrid search result from POST /api/v1/search/hybrid.
+ * Fields match the RAG-Wissen HybridSearchResult schema.
+ */
+export interface HybridSearchResult {
+  file_name: string
+  content: string
+  combined_score: number
+  keyword_score: number
+  semantic_score: number
+  domain?: string
+  language?: string
+  document_type?: string
+  keywords?: string[]
+}
+
+/**
+ * Semantic search result from POST /search.
+ * Fields match the RAG-Wissen SearchResponse schema.
+ */
+export interface SemanticSearchResult {
   content: string
   score: number
-  metadata: {
-    source: string
-    filename: string
-    chunkIndex?: number
-    [key: string]: unknown
-  }
+  file_name: string
+  file_type?: string
+  domain?: string
+  language?: string
+  keywords?: string[]
 }
 
 // ── Chat ────────────────────────────────────────────────────────────────
+
+/**
+ * Source document returned with a chat answer.
+ * From POST /api/v1/chat/message → message.sources[].
+ */
+export interface ChatSource {
+  file_name: string
+  content: string
+  score: number
+  domain?: string
+  language?: string
+  document_type?: string
+}
 
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: number
-  sources?: SearchResult[]
+  sources?: ChatSource[]
+  sessionId?: string
 }
 
+/**
+ * Normalized chat response from IPC handler.
+ */
 export interface ChatResponse {
   content: string
-  sources: SearchResult[]
+  sources: ChatSource[]
+  sessionId?: string
+  historyLength?: number
+  error?: string
 }
 
 // ── Documents ───────────────────────────────────────────────────────────

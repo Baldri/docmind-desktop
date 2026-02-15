@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Search, Loader2, FileText, X } from 'lucide-react'
 import { useSearchStore } from '../stores/search-store'
+import type { HybridSearchResult } from '../../shared/types'
 
 /**
  * Hybrid search interface — keyword + semantic search across all documents.
@@ -91,35 +92,7 @@ export function SearchView() {
               </p>
               <div className="space-y-3">
                 {results.map((result, i) => (
-                  <div
-                    key={result.id || i}
-                    className="rounded-lg border border-border bg-secondary/50 p-4 transition-colors hover:bg-secondary"
-                  >
-                    {/* Header */}
-                    <div className="mb-2 flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 shrink-0 text-primary" />
-                        <span className="text-sm font-medium">
-                          {result.metadata?.filename || 'Dokument'}
-                        </span>
-                      </div>
-                      <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400">
-                        {(result.score * 100).toFixed(0)}%
-                      </span>
-                    </div>
-
-                    {/* Content preview */}
-                    <p className="line-clamp-4 text-sm text-muted-foreground">
-                      {result.content}
-                    </p>
-
-                    {/* Source path */}
-                    {result.metadata?.source && (
-                      <p className="mt-2 truncate text-xs text-muted-foreground/60">
-                        {result.metadata.source}
-                      </p>
-                    )}
-                  </div>
+                  <ResultCard key={`${result.file_name}-${i}`} result={result} />
                 ))}
               </div>
             </>
@@ -139,6 +112,48 @@ export function SearchView() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Single search result card with score breakdown.
+ */
+function ResultCard({ result }: { result: HybridSearchResult }) {
+  return (
+    <div className="rounded-lg border border-border bg-secondary/50 p-4 transition-colors hover:bg-secondary">
+      {/* Header: filename + combined score */}
+      <div className="mb-2 flex items-start justify-between">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 shrink-0 text-primary" />
+          <span className="text-sm font-medium">
+            {result.file_name || 'Dokument'}
+          </span>
+          {result.domain && (
+            <span className="rounded bg-slate-500/10 px-1.5 py-0.5 text-[10px] text-slate-400">
+              {result.domain}
+            </span>
+          )}
+        </div>
+        <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400">
+          {(result.combined_score * 100).toFixed(0)}%
+        </span>
+      </div>
+
+      {/* Content preview */}
+      <p className="line-clamp-4 text-sm text-muted-foreground">
+        {result.content}
+      </p>
+
+      {/* Score breakdown: keyword vs semantic */}
+      <div className="mt-2 flex gap-3 text-[10px] text-muted-foreground/60">
+        <span>
+          BM25: {(result.keyword_score * 100).toFixed(0)}%
+        </span>
+        <span>
+          Semantic: {(result.semantic_score * 100).toFixed(0)}%
+        </span>
       </div>
     </div>
   )

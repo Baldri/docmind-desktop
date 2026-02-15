@@ -1,9 +1,18 @@
 import { create } from 'zustand'
-import type { SearchResult } from '../../shared/types'
+import type { HybridSearchResult } from '../../shared/types'
+
+interface HybridSearchResponse {
+  query: string
+  total_results: number
+  keyword_weight: number
+  semantic_weight: number
+  results: HybridSearchResult[]
+  error?: string
+}
 
 interface SearchState {
   query: string
-  results: SearchResult[]
+  results: HybridSearchResult[]
   isSearching: boolean
   error: string | null
 
@@ -26,14 +35,14 @@ export const useSearchStore = create<SearchState>((set) => ({
     set({ query, isSearching: true, error: null })
 
     try {
-      const response = await window.electronAPI.search.hybrid(query, { limit: 10 })
+      const response = await window.electronAPI.search.hybrid(query, { limit: 10 }) as HybridSearchResponse
 
       if (response.error) {
         throw new Error(response.error)
       }
 
       set({
-        results: response.results ?? response ?? [],
+        results: response.results ?? [],
         isSearching: false,
       })
     } catch (error) {
