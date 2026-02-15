@@ -26,6 +26,9 @@ export const IPC_CHANNELS = {
   // Services
   SERVICES_STATUS: 'services:status',
   SERVICES_RESTART: 'services:restart',
+
+  // Export
+  EXPORT_SAVE_FILE: 'export:saveFile',
 } as const
 
 // ── Service Status ──────────────────────────────────────────────────────

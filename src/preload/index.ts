@@ -93,6 +93,12 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.SERVICES_RESTART, serviceName),
   },
 
+  // ── Export ─────────────────────────────────────────────────────────
+  export: {
+    saveFile: (content: string, defaultFilename: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.EXPORT_SAVE_FILE, content, defaultFilename),
+  },
+
   // ── Platform Info ───────────────────────────────────────────────────
   platform: process.platform as 'darwin' | 'win32' | 'linux',
 }

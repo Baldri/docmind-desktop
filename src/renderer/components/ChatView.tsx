@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Square, Trash2, BookOpen, ThumbsUp, ThumbsDown, ChevronDown, FileText } from 'lucide-react'
+import { Send, Square, Trash2, BookOpen, ThumbsUp, ThumbsDown, ChevronDown, FileText, Download } from 'lucide-react'
 import { useChatStore } from '../stores/chat-store'
 import type { ChatMessage, ChatSource } from '../../shared/types'
 import ReactMarkdown from 'react-markdown'
@@ -66,6 +66,46 @@ export function ChatView() {
     }
   }
 
+  /**
+   * Export chat as Markdown file via native Save dialog.
+   * Converts all messages to a readable Markdown document with
+   * sources and timestamps.
+   */
+  const handleExport = async () => {
+    if (messages.length === 0) return
+
+    const date = new Date().toISOString().slice(0, 10)
+    const lines: string[] = [
+      `# Docmind Chat — ${date}`,
+      '',
+    ]
+
+    for (const msg of messages) {
+      const time = new Date(msg.timestamp).toLocaleTimeString('de-CH', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      if (msg.role === 'user') {
+        lines.push(`## Frage (${time})`, '', msg.content, '')
+      } else if (msg.role === 'assistant') {
+        lines.push(`## Antwort (${time})`, '', msg.content, '')
+        if (msg.sources && msg.sources.length > 0) {
+          lines.push('### Quellen', '')
+          for (const src of msg.sources) {
+            const score = src.score != null ? ` (${(src.score * 100).toFixed(0)}%)` : ''
+            lines.push(`- **${src.file_name || 'Dokument'}**${score}`)
+          }
+          lines.push('')
+        }
+      }
+    }
+
+    lines.push('---', `*Exportiert am ${new Date().toLocaleString('de-CH')} mit Docmind Desktop*`)
+
+    const filename = `docmind-chat-${date}.md`
+    await window.electronAPI.export.saveFile(lines.join('\n'), filename)
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -83,13 +123,22 @@ export function ChatView() {
             </button>
           )}
           {messages.length > 0 && (
-            <button
-              onClick={clearMessages}
-              className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
-              title="Verlauf loeschen"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
+            <>
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+                title="Chat exportieren (Markdown)"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={clearMessages}
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+                title="Verlauf loeschen"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
           )}
         </div>
       </header>

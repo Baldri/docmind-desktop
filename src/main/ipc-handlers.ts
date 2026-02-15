@@ -1,5 +1,5 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
-import { readdir, stat } from 'fs/promises'
+import { readdir, stat, writeFile } from 'fs/promises'
 import { join, extname } from 'path'
 import { IPC_CHANNELS } from '../shared/types'
 import type { QdrantSidecar } from './services/qdrant-sidecar'
@@ -409,4 +409,38 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
     settings[key] = value
     return true
   })
+
+  // ── Export ──────────────────────────────────────────────────────────
+  // Save file dialog + write content to disk.
+  // Used by Chat Export (Markdown) — renderer sends the formatted content,
+  // main process handles the native Save dialog and fs write.
+  ipcMain.handle(
+    IPC_CHANNELS.EXPORT_SAVE_FILE,
+    async (_event, content: string, defaultFilename: string, filters?: Electron.FileFilter[]) => {
+      try {
+        const win = BrowserWindow.getFocusedWindow()
+        if (!win) throw new Error('No focused window')
+
+        const result = await dialog.showSaveDialog(win, {
+          title: 'Exportieren',
+          defaultPath: defaultFilename,
+          filters: filters ?? [
+            { name: 'Markdown', extensions: ['md'] },
+            { name: 'Text', extensions: ['txt'] },
+            { name: 'Alle Dateien', extensions: ['*'] },
+          ],
+        })
+
+        if (result.canceled || !result.filePath) {
+          return { canceled: true }
+        }
+
+        await writeFile(result.filePath, content, 'utf-8')
+        return { canceled: false, filePath: result.filePath }
+      } catch (error) {
+        console.error('[IPC] Export save error:', error)
+        return { canceled: false, error: String(error) }
+      }
+    },
+  )
 }
