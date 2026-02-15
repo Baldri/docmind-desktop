@@ -1,0 +1,126 @@
+name: Build & Release
+
+# Triggers:
+#   - Push to master: builds all platforms, creates draft GitHub Release
+#   - Manual dispatch: same, but can be triggered from GitHub UI
+#   - Tag push (v*): builds + publishes as non-draft release
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  workflow_dispatch:
+
+# Prevent concurrent builds for the same ref
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  QDRANT_VERSION: '1.16.3'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # electron-builder ${os} → mac/win/linux, ${arch} → arm64/x64
+          - os: macos-latest
+            platform: mac
+            qdrant_asset: qdrant-aarch64-apple-darwin.tar.gz
+            qdrant_bin_dir: mac/arm64
+            builder_flags: '-m --arm64'
+          - os: macos-13
+            platform: mac-x64
+            qdrant_asset: qdrant-x86_64-apple-darwin.tar.gz
+            qdrant_bin_dir: mac/x64
+            builder_flags: '-m --x64'
+          - os: ubuntu-latest
+            platform: linux
+            qdrant_asset: qdrant-x86_64-unknown-linux-gnu.tar.gz
+            qdrant_bin_dir: linux/x64
+            builder_flags: '-l'
+          - os: windows-latest
+            platform: win
+            qdrant_asset: qdrant-x86_64-pc-windows-msvc.zip
+            qdrant_bin_dir: win/x64
+            builder_flags: '-w'
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Download Qdrant binary ──────────────────────────────────────
+      - name: Download Qdrant (Unix)
+        if: runner.os != 'Windows'
+        env:
+          QDRANT_ASSET: ${{ matrix.qdrant_asset }}
+          BIN_DIR: ${{ matrix.qdrant_bin_dir }}
+        run: |
+          mkdir -p "bin/${BIN_DIR}"
+          curl -L -o /tmp/qdrant.tar.gz \
+            "https://github.com/qdrant/qdrant/releases/download/v${QDRANT_VERSION}/${QDRANT_ASSET}"
+          tar -xzf /tmp/qdrant.tar.gz -C /tmp/
+          mv /tmp/qdrant "bin/${BIN_DIR}/qdrant"
+          chmod +x "bin/${BIN_DIR}/qdrant"
+
+      - name: Download Qdrant (Windows)
+        if: runner.os == 'Windows'
+        env:
+          QDRANT_ASSET: ${{ matrix.qdrant_asset }}
+          BIN_DIR: ${{ matrix.qdrant_bin_dir }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "bin\$env:BIN_DIR"
+          $url = "https://github.com/qdrant/qdrant/releases/download/v$env:QDRANT_VERSION/$env:QDRANT_ASSET"
+          Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\qdrant.zip"
+          Expand-Archive -Path "$env:TEMP\qdrant.zip" -DestinationPath "$env:TEMP\qdrant-extracted" -Force
+          Move-Item "$env:TEMP\qdrant-extracted\qdrant.exe" "bin\$env:BIN_DIR\qdrant.exe"
+
+      # ── Build ───────────────────────────────────────────────────────
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Build app
+        run: npm run build
+
+      # ── Package & Publish ────────────────────────────────────────────
+      # electron-builder detects GH_TOKEN and publishes to GitHub Releases.
+      # On tag push: creates/updates the release matching the tag.
+      # On branch push: creates a draft release matching package.json version.
+      - name: Package & publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          BUILDER_FLAGS: ${{ matrix.builder_flags }}
+        run: npx electron-builder ${{ matrix.builder_flags }} --publish always
+
+      # ── Upload artifacts (backup, independent of Release) ───────────
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: docmind-${{ matrix.platform }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.AppImage
+            release/*.deb
+            release/*.yml
+            release/*.yaml
+          if-no-files-found: warn
+          retention-days: 14
