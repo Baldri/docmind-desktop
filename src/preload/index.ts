@@ -54,14 +54,15 @@ const api = {
     list: () =>
       ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_LIST),
 
-    upload: (paths: string[]) =>
-      ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_UPLOAD, paths),
+    // Opens native file dialog and triggers indexing — no paths needed from renderer
+    upload: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_UPLOAD),
 
     getStatus: () =>
       ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_STATUS),
 
-    reindex: () =>
-      ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_REINDEX),
+    reindex: (fileId?: number) =>
+      ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_REINDEX, fileId),
   },
 
   // ── Settings ────────────────────────────────────────────────────────

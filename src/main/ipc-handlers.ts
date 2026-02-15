@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { IPC_CHANNELS } from '../shared/types'
 import type { QdrantSidecar } from './services/qdrant-sidecar'
 import type { PythonSidecar } from './services/python-sidecar'
@@ -147,24 +147,86 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
   })
 
   // ── Documents ──────────────────────────────────────────────────────
-  // GET /api/v1/files (Dashboard API)
+
+  // File stats: GET /api/v1/files/stats
+  // Returns: { total, indexed, processing, failed, pending, by_domain, by_status }
   ipcMain.handle(IPC_CHANNELS.DOCUMENTS_LIST, async () => {
     try {
-      const result = await getJSON(`${DASHBOARD_API}/files`)
+      const result = await getJSON(`${DASHBOARD_API}/files/stats`)
       return result
     } catch (error) {
-      console.error('[IPC] Documents list error:', error)
-      return { files: [], error: String(error) }
+      console.error('[IPC] Documents stats error:', error)
+      return { total: 0, indexed: 0, pending: 0, failed: 0, error: String(error) }
     }
   })
 
-  // GET /stats (Base API)
+  // Upload: opens native file dialog, then triggers indexing via POST /admin/index
+  // RAG-Wissen is pull-based — files must exist on disk, then we trigger indexing.
+  ipcMain.handle(IPC_CHANNELS.DOCUMENTS_UPLOAD, async () => {
+    try {
+      const win = BrowserWindow.getFocusedWindow()
+      if (!win) throw new Error('No focused window')
+
+      const result = await dialog.showOpenDialog(win, {
+        title: 'Dokumente hinzufuegen',
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          {
+            name: 'Dokumente',
+            extensions: [
+              'pdf', 'docx', 'doc', 'txt', 'md',
+              'pptx', 'ppt', 'xlsx', 'xls', 'csv',
+              'html', 'htm',
+            ],
+          },
+          { name: 'Alle Dateien', extensions: ['*'] },
+        ],
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { canceled: true, count: 0 }
+      }
+
+      // Trigger indexing via Admin API
+      const indexResult = await postJSON(`${RAG_API}/admin/index`, {
+        file_paths: result.filePaths,
+        priority: 5,
+      })
+
+      return { canceled: false, ...(indexResult as Record<string, unknown>) }
+    } catch (error) {
+      console.error('[IPC] Upload/index error:', error)
+      return { canceled: false, count: 0, error: String(error) }
+    }
+  })
+
+  // Index stats: GET /stats (Base API — Qdrant collection stats)
   ipcMain.handle(IPC_CHANNELS.DOCUMENTS_STATUS, async () => {
     try {
       const result = await getJSON(`${RAG_API}/stats`)
       return result
     } catch (error) {
       console.error('[IPC] Stats error:', error)
+      return { error: String(error) }
+    }
+  })
+
+  // Reindex: POST /api/v1/documents/{fileId}/reindex
+  // Deletes vectors and resets file to pending status
+  ipcMain.handle(IPC_CHANNELS.DOCUMENTS_REINDEX, async (_event, fileId?: number) => {
+    try {
+      if (fileId) {
+        // Reindex single file
+        const result = await postJSON(`${DASHBOARD_API}/documents/${fileId}/reindex`, {})
+        return result
+      }
+      // Retry all failed files
+      const result = await postJSON(`${DASHBOARD_API}/files/retry-bulk`, {
+        status: 'failed',
+      })
+      return result
+    } catch (error) {
+      console.error('[IPC] Reindex error:', error)
       return { error: String(error) }
     }
   })

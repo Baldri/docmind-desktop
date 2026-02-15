@@ -1,17 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
-import { MessageSquare, Search, Settings } from 'lucide-react'
+import { MessageSquare, Search, FileText, Settings } from 'lucide-react'
 import { ChatView } from './components/ChatView'
 import { SearchView } from './components/SearchView'
+import { DocumentsView } from './components/DocumentsView'
 import { SettingsView } from './components/SettingsView'
 import { SetupWizard } from './components/SetupWizard'
 import { ServiceStatus } from './components/ServiceStatus'
 import { useServicesStore } from './stores/services-store'
 
-type View = 'chat' | 'search' | 'settings'
+type View = 'chat' | 'search' | 'documents' | 'settings'
 
 const NAV_ITEMS: { id: View; label: string; icon: typeof MessageSquare }[] = [
   { id: 'chat', label: 'Chat', icon: MessageSquare },
   { id: 'search', label: 'Suche', icon: Search },
+  { id: 'documents', label: 'Dokumente', icon: FileText },
   { id: 'settings', label: 'Einstellungen', icon: Settings },
 ]
 
@@ -92,6 +94,7 @@ export function App() {
       <main className="flex flex-1 flex-col overflow-hidden">
         {activeView === 'chat' && <ChatView />}
         {activeView === 'search' && <SearchView />}
+        {activeView === 'documents' && <DocumentsView />}
         {activeView === 'settings' && <SettingsView />}
       </main>
     </div>
