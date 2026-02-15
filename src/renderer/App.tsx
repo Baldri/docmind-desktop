@@ -7,6 +7,7 @@ import { SettingsView } from './components/SettingsView'
 import { SetupWizard } from './components/SetupWizard'
 import { ServiceStatus } from './components/ServiceStatus'
 import { ConnectionBanner } from './components/ConnectionBanner'
+import { OnboardingTour } from './components/OnboardingTour'
 import { useServicesStore } from './stores/services-store'
 
 type View = 'chat' | 'search' | 'documents' | 'settings'
@@ -25,9 +26,15 @@ const NAV_ITEMS: { id: View; label: string; icon: typeof MessageSquare }[] = [
  * Once dismissed, shows the main app layout with sidebar navigation.
  * The wizard can also be bypassed via "Trotzdem starten".
  */
+/** Check if this is the first launch by looking at localStorage */
+function isFirstLaunch(): boolean {
+  return localStorage.getItem('docmind:onboarding-done') !== 'true'
+}
+
 export function App() {
   const [activeView, setActiveView] = useState<View>('chat')
   const [showWizard, setShowWizard] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const checkStatus = useServicesStore((s) => s.checkStatus)
   const services = useServicesStore((s) => s.services)
 
@@ -53,6 +60,15 @@ export function App() {
 
   const handleWizardReady = useCallback(() => {
     setShowWizard(false)
+    // Show onboarding tour on first launch after wizard
+    if (isFirstLaunch()) {
+      setShowOnboarding(true)
+    }
+  }, [])
+
+  const handleOnboardingComplete = useCallback(() => {
+    setShowOnboarding(false)
+    localStorage.setItem('docmind:onboarding-done', 'true')
   }, [])
 
   // Show wizard on first launch or when services need setup
@@ -62,6 +78,9 @@ export function App() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
+      {/* Onboarding Tour Overlay */}
+      {showOnboarding && <OnboardingTour onComplete={handleOnboardingComplete} />}
+
       {/* Sidebar */}
       <aside className="flex w-16 flex-col items-center border-r border-border bg-slate-950 py-4">
         {/* macOS drag region */}
