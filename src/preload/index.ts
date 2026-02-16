@@ -1,6 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/types'
-import type { SearchOptions, ServiceInfo, UpdateInfo } from '../shared/types'
+import type {
+  SearchOptions,
+  ServiceInfo,
+  UpdateInfo,
+  LicenseStatus,
+  FeatureGateResult,
+  DocmindFeature,
+  SubscriptionTier,
+} from '../shared/types'
 
 /**
  * Preload script — runs in a sandboxed context with access to Electron APIs.
@@ -127,6 +135,27 @@ const api = {
       ipcRenderer.on('updater:status', listener)
       return () => ipcRenderer.removeListener('updater:status', listener)
     },
+  },
+
+  // ── License ─────────────────────────────────────────────────────────
+  license: {
+    activate: (key: string): Promise<{ valid: boolean; tier?: SubscriptionTier; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.LICENSE_ACTIVATE, key),
+
+    deactivate: (): Promise<{ tier: SubscriptionTier }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.LICENSE_DEACTIVATE),
+
+    getStatus: (): Promise<LicenseStatus> =>
+      ipcRenderer.invoke(IPC_CHANNELS.LICENSE_GET_STATUS),
+  },
+
+  // ── Feature Gate ───────────────────────────────────────────────────
+  featureGate: {
+    check: (feature: DocmindFeature): Promise<FeatureGateResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FEATURE_CHECK, feature),
+
+    getTier: (): Promise<SubscriptionTier> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FEATURE_GET_TIER),
   },
 
   // ── Platform Info ───────────────────────────────────────────────────
