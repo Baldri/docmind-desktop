@@ -52,6 +52,9 @@ export const useServicesStore = create<ServicesState>((set, get) => {
 
     set({ isChecking: true })
     try {
+      if (!window.electronAPI?.services) {
+        throw new Error('electronAPI nicht verfuegbar — Preload nicht geladen')
+      }
       const statuses = await window.electronAPI.services.getStatus()
       set({
         services: statuses,
@@ -77,6 +80,7 @@ export const useServicesStore = create<ServicesState>((set, get) => {
 
   restartService: async (name: string) => {
     try {
+      if (!window.electronAPI?.services) return
       await window.electronAPI.services.restart(name)
     } catch (error) {
       console.error(`[Services] Failed to restart ${name}:`, error)
