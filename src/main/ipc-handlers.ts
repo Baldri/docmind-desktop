@@ -1,11 +1,14 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { ipcMain, dialog, BrowserWindow, shell } from 'electron'
 import { readdir, stat, writeFile } from 'fs/promises'
 import { join, extname } from 'path'
 import { IPC_CHANNELS } from '../shared/types'
+import type { DocmindFeature } from '../shared/types'
 import type { QdrantSidecar } from './services/qdrant-sidecar'
 import type { PythonSidecar } from './services/python-sidecar'
 import type { OllamaChecker } from './services/ollama-checker'
 import type { AutoUpdaterService } from './services/auto-updater'
+import { getLicenseService } from './services/license-activation'
+import { getFeatureGateManager } from './services/feature-gate-manager'
 
 /** Supported file extensions for document indexing */
 const INDEXABLE_EXTENSIONS = new Set([
@@ -388,8 +391,10 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
 
   // Upload Folder: opens native directory dialog, recursively collects
   // indexable files, then triggers indexing via POST /admin/index.
+  // PRO FEATURE: folder-import
   ipcMain.handle(IPC_CHANNELS.DOCUMENTS_UPLOAD_FOLDER, async () => {
     try {
+      getFeatureGateManager().requireFeature('folder-import')
       const win = BrowserWindow.getFocusedWindow()
       if (!win) throw new Error('No focused window')
 
@@ -463,9 +468,11 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
   })
 
   // Index by paths: accepts file paths directly (used by drag & drop)
+  // PRO FEATURE: drag-drop-import
   // Validates extensions before sending to the API.
   ipcMain.handle(IPC_CHANNELS.DOCUMENTS_INDEX_PATHS, async (_event, paths: string[]) => {
     try {
+      getFeatureGateManager().requireFeature('drag-drop-import')
       if (!Array.isArray(paths) || paths.length === 0) {
         return { count: 0, error: 'Keine Pfade angegeben' }
       }
@@ -523,12 +530,12 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
 
   // ── Export ──────────────────────────────────────────────────────────
   // Save file dialog + write content to disk.
-  // Used by Chat Export (Markdown) — renderer sends the formatted content,
-  // main process handles the native Save dialog and fs write.
+  // PRO FEATURE: chat-export
   ipcMain.handle(
     IPC_CHANNELS.EXPORT_SAVE_FILE,
     async (_event, content: string, defaultFilename: string, filters?: Electron.FileFilter[]) => {
       try {
+        getFeatureGateManager().requireFeature('chat-export')
         const win = BrowserWindow.getFocusedWindow()
         if (!win) throw new Error('No focused window')
 
@@ -574,5 +581,42 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
     if (!updater) return { status: 'error', error: 'Updater not available in dev mode' }
     updater.installUpdate()
     return { status: 'installing' }
+  })
+
+  // ── License ───────────────────────────────────────────────────────
+  // Offline HMAC-SHA256 validation. Keys are purchased via Stripe Checkout.
+
+  const license = getLicenseService()
+  const featureGate = getFeatureGateManager()
+
+  // Sync feature gate with stored license on startup
+  featureGate.setTier(license.getCurrentTier())
+
+  ipcMain.handle(IPC_CHANNELS.LICENSE_ACTIVATE, (_event, key: string) => {
+    const result = license.activate(key)
+    if (result.valid && result.tier) {
+      featureGate.setTier(result.tier)
+    }
+    return result
+  })
+
+  ipcMain.handle(IPC_CHANNELS.LICENSE_DEACTIVATE, () => {
+    license.deactivate()
+    featureGate.setTier('community')
+    return { tier: 'community' }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.LICENSE_GET_STATUS, () => {
+    return license.getStatus()
+  })
+
+  // ── Feature Gate ──────────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.FEATURE_CHECK, (_event, feature: DocmindFeature) => {
+    return featureGate.checkFeature(feature)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.FEATURE_GET_TIER, () => {
+    return featureGate.getTier()
   })
 }
