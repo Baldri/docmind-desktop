@@ -35,6 +35,15 @@ export const IPC_CHANNELS = {
   UPDATE_CHECK: 'updater:check',
   UPDATE_DOWNLOAD: 'updater:download',
   UPDATE_INSTALL: 'updater:install',
+
+  // License
+  LICENSE_ACTIVATE: 'license:activate',
+  LICENSE_DEACTIVATE: 'license:deactivate',
+  LICENSE_GET_STATUS: 'license:getStatus',
+
+  // Feature Gate
+  FEATURE_CHECK: 'feature:check',
+  FEATURE_GET_TIER: 'feature:getTier',
 } as const
 
 // ── Service Status ──────────────────────────────────────────────────────
@@ -180,3 +189,31 @@ export const DEFAULT_SETTINGS: AppSettings = {
   watchDirectories: [],
   theme: 'dark',
 }
+
+// ── Subscription & Feature Gating ──────────────────────────────────────
+
+export type SubscriptionTier = 'community' | 'pro'
+
+/** Features that require a Pro license */
+export type DocmindFeature =
+  | 'folder-import'
+  | 'drag-drop-import'
+  | 'chat-export'
+  | 'unlimited-documents'
+  | 'auto-update-install'
+
+export interface LicenseStatus {
+  tier: SubscriptionTier
+  isActivated: boolean
+  key?: string
+  activatedAt?: number
+}
+
+export interface FeatureGateResult {
+  allowed: boolean
+  reason?: string
+  requiredTier?: SubscriptionTier
+}
+
+/** Document limit for Community tier */
+export const COMMUNITY_DOCUMENT_LIMIT = 50
