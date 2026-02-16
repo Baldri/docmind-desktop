@@ -6,3 +6,6 @@ release/
 .env
 .env.local
 bin/
+
+# Build-time generated license secret (never commit)
+src/main/services/_license-secret.ts
