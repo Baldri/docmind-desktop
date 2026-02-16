@@ -1,13 +1,11 @@
 name: Build & Release
 
 # Triggers:
-#   - Push to master: builds all platforms, creates draft GitHub Release
-#   - Manual dispatch: same, but can be triggered from GitHub UI
-#   - Tag push (v*): builds + publishes as non-draft release
+#   - Tag push (v*): builds all platforms, publishes to GitHub Release
+#   - Manual dispatch: builds + publishes (e.g. for testing)
 
 on:
   push:
-    branches: [master]
     tags: ['v*']
   workflow_dispatch:
 
@@ -26,22 +24,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # electron-builder ${os} → mac/win/linux, ${arch} → arm64/x64
+          # macOS Apple Silicon (arm64)
           - os: macos-latest
             platform: mac
             qdrant_asset: qdrant-aarch64-apple-darwin.tar.gz
             qdrant_bin_dir: mac/arm64
             builder_flags: '-m --arm64'
+          # macOS Intel (x64)
           - os: macos-13
             platform: mac-x64
             qdrant_asset: qdrant-x86_64-apple-darwin.tar.gz
             qdrant_bin_dir: mac/x64
             builder_flags: '-m --x64'
+          # Linux x64
           - os: ubuntu-latest
             platform: linux
             qdrant_asset: qdrant-x86_64-unknown-linux-gnu.tar.gz
             qdrant_bin_dir: linux/x64
             builder_flags: '-l'
+          # Windows x64
           - os: windows-latest
             platform: win
             qdrant_asset: qdrant-x86_64-pc-windows-msvc.zip
@@ -91,17 +92,27 @@ jobs:
           Expand-Archive -Path "$env:TEMP\qdrant.zip" -DestinationPath "$env:TEMP\qdrant-extracted" -Force
           Move-Item "$env:TEMP\qdrant-extracted\qdrant.exe" "bin\$env:BIN_DIR\qdrant.exe"
 
+      # ── Generate license secret ─────────────────────────────────────
+      # Must run BEFORE typecheck since _license-secret.ts is imported
+      # by license-activation.ts and needs to exist for tsc to pass.
+      - name: Inject license secret
+        env:
+          DOCMIND_LICENSE_SECRET: ${{ secrets.DOCMIND_LICENSE_SECRET }}
+        run: npx tsx scripts/inject-secret.ts
+
       # ── Build ───────────────────────────────────────────────────────
       - name: TypeScript typecheck
         run: npm run typecheck
 
       - name: Build app
+        env:
+          DOCMIND_LICENSE_SECRET: ${{ secrets.DOCMIND_LICENSE_SECRET }}
         run: npm run build
 
       # ── Package & Publish ────────────────────────────────────────────
       # electron-builder detects GH_TOKEN and publishes to GitHub Releases.
-      # On tag push: creates/updates the release matching the tag.
-      # On branch push: creates a draft release matching package.json version.
+      # --publish always: uploads artifacts to the release matching the tag.
+      # For workflow_dispatch (no tag): creates a draft release.
       - name: Package & publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -131,5 +142,6 @@ jobs:
             release/*.deb
             release/*.yml
             release/*.yaml
+            release/*.blockmap
           if-no-files-found: warn
           retention-days: 14
