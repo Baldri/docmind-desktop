@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Square, Trash2, BookOpen, ThumbsUp, ThumbsDown, ChevronDown, FileText, Download } from 'lucide-react'
+import { Send, Square, Trash2, BookOpen, ThumbsUp, ThumbsDown, ChevronDown, FileText, Download, Crown } from 'lucide-react'
 import { useChatStore } from '../stores/chat-store'
+import { useSubscriptionStore } from '../stores/subscription-store'
+import { UpgradeDialog } from './UpgradeDialog'
 import type { ChatMessage, ChatSource } from '../../shared/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -19,6 +21,9 @@ export function ChatView() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const [exportMsg, setExportMsg] = useState<string | null>(null)
+  const [showUpgrade, setShowUpgrade] = useState(false)
+  const tier = useSubscriptionStore((s) => s.tier)
+  const isCommunity = tier === 'community'
 
   const {
     messages,
@@ -91,6 +96,10 @@ export function ChatView() {
    */
   const handleExport = async () => {
     if (messages.length === 0) return
+    if (isCommunity) {
+      setShowUpgrade(true)
+      return
+    }
 
     const date = new Date().toISOString().slice(0, 10)
     const lines: string[] = [
@@ -138,6 +147,14 @@ export function ChatView() {
 
   return (
     <div className="flex h-full flex-col">
+      {/* Upgrade Dialog */}
+      {showUpgrade && (
+        <UpgradeDialog
+          feature="Chat Export"
+          onClose={() => setShowUpgrade(false)}
+        />
+      )}
+
       {/* Header */}
       <header className="drag-region flex items-center justify-between border-b border-border px-6 py-3">
         <h1 className="no-drag text-lg font-semibold">Chat</h1>
@@ -157,9 +174,10 @@ export function ChatView() {
               <button
                 onClick={handleExport}
                 className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
-                title="Chat exportieren (Markdown)"
+                title={isCommunity ? 'Chat Export (Pro)' : 'Chat exportieren (Markdown)'}
               >
                 <Download className="h-3.5 w-3.5" />
+                {isCommunity && <Crown className="h-3 w-3 text-amber-400" />}
               </button>
               <button
                 onClick={clearMessages}

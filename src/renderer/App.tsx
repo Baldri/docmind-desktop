@@ -11,6 +11,7 @@ import { UpdateBanner } from './components/UpdateBanner'
 import { OnboardingTour } from './components/OnboardingTour'
 import { useServicesStore } from './stores/services-store'
 import { useChatStore } from './stores/chat-store'
+import { useSubscriptionStore } from './stores/subscription-store'
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts'
 
 type View = 'chat' | 'search' | 'documents' | 'settings'
@@ -43,14 +44,16 @@ export function App() {
   const clearChat = useChatStore((s) => s.clearMessages)
   const abortStream = useChatStore((s) => s.abortStream)
   const isStreaming = useChatStore((s) => s.isStreaming)
+  const loadLicenseStatus = useSubscriptionStore((s) => s.loadStatus)
 
   // Global keyboard shortcuts (Cmd+1..4, Cmd+K, Cmd+N, Escape)
   useKeyboardShortcuts({ setActiveView, clearChat, abortStream, isStreaming })
 
-  // Initial check to decide if wizard is needed
+  // Initial check to decide if wizard is needed + load license
   useEffect(() => {
     checkStatus()
-  }, [checkStatus])
+    loadLicenseStatus()
+  }, [checkStatus, loadLicenseStatus])
 
   // Auto-skip wizard if all services are already healthy
   useEffect(() => {

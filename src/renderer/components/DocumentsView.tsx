@@ -10,7 +10,11 @@ import {
   Loader2,
   Database,
   RotateCcw,
+  Crown,
 } from 'lucide-react'
+import { useSubscriptionStore } from '../stores/subscription-store'
+import { UpgradeDialog } from './UpgradeDialog'
+import { COMMUNITY_DOCUMENT_LIMIT } from '../../shared/types'
 
 interface FileStats {
   total: number
@@ -51,6 +55,10 @@ export function DocumentsView() {
   const [isRetrying, setIsRetrying] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [showUpgrade, setShowUpgrade] = useState(false)
+  const [upgradeFeature, setUpgradeFeature] = useState('')
+  const tier = useSubscriptionStore((s) => s.tier)
+  const isCommunity = tier === 'community'
 
   const loadStats = useCallback(async () => {
     try {
@@ -97,6 +105,11 @@ export function DocumentsView() {
   }
 
   const handleUploadFolder = async () => {
+    if (isCommunity) {
+      setUpgradeFeature('Ordner-Import')
+      setShowUpgrade(true)
+      return
+    }
     setIsUploadingFolder(true)
     setMessage(null)
     try {
@@ -144,6 +157,12 @@ export function DocumentsView() {
     e.stopPropagation()
     setIsDragOver(false)
     setMessage(null)
+
+    if (isCommunity) {
+      setUpgradeFeature('Drag & Drop Import')
+      setShowUpgrade(true)
+      return
+    }
 
     const files = Array.from(e.dataTransfer.files)
     if (files.length === 0) return
@@ -213,6 +232,14 @@ export function DocumentsView() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Upgrade Dialog */}
+      {showUpgrade && (
+        <UpgradeDialog
+          feature={upgradeFeature}
+          onClose={() => setShowUpgrade(false)}
+        />
+      )}
+
       {/* Drag & Drop Overlay */}
       {isDragOver && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm">
@@ -222,6 +249,9 @@ export function DocumentsView() {
             <p className="mt-1 text-sm text-muted-foreground">
               PDF, DOCX, TXT, MD, PPTX, XLSX, CSV, HTML
             </p>
+            {isCommunity && (
+              <p className="mt-2 text-xs text-amber-400">Pro-Feature — erfordert Docmind Pro</p>
+            )}
           </div>
         </div>
       )}
@@ -249,6 +279,7 @@ export function DocumentsView() {
               <FolderOpen className="h-3.5 w-3.5" />
             )}
             Ordner
+            {isCommunity && <Crown className="h-3 w-3 text-amber-400" />}
           </button>
           <button
             onClick={handleUpload}
@@ -311,6 +342,31 @@ export function DocumentsView() {
                 color="text-red-400"
                 bgColor="bg-red-500/10"
               />
+            </div>
+          )}
+
+          {/* Document Limit (Community) */}
+          {isCommunity && stats && !stats.error && (
+            <div className="rounded-lg border border-border bg-secondary/50 px-4 py-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Dokumentenlimit</span>
+                <span className="font-mono">
+                  {stats.total} / {COMMUNITY_DOCUMENT_LIMIT}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 rounded-full bg-border">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    stats.total >= COMMUNITY_DOCUMENT_LIMIT ? 'bg-red-500' : 'bg-primary'
+                  }`}
+                  style={{ width: `${Math.min((stats.total / COMMUNITY_DOCUMENT_LIMIT) * 100, 100)}%` }}
+                />
+              </div>
+              {stats.total >= COMMUNITY_DOCUMENT_LIMIT && (
+                <p className="mt-2 text-xs text-amber-400">
+                  Limit erreicht — Upgrade auf Pro fuer unbegrenzte Dokumente
+                </p>
+              )}
             </div>
           )}
 

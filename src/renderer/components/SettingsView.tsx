@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import { useServicesStore } from '../stores/services-store'
 import { useThemeStore } from '../stores/theme-store'
-import { RefreshCw, Sun, Moon, Monitor } from 'lucide-react'
+import { useSubscriptionStore } from '../stores/subscription-store'
+import { LicenseKeyDialog } from './LicenseKeyDialog'
+import { RefreshCw, Sun, Moon, Monitor, Key, Crown, CheckCircle } from 'lucide-react'
 import type { ServiceStatus } from '../../shared/types'
 
 const STATUS_COLORS: Record<ServiceStatus, string> = {
@@ -29,9 +32,18 @@ const THEME_OPTIONS = [
 export function SettingsView() {
   const { services, isChecking, checkStatus, restartService } = useServicesStore()
   const { theme, setTheme } = useThemeStore()
+  const tier = useSubscriptionStore((s) => s.tier)
+  const isActivated = useSubscriptionStore((s) => s.isActivated)
+  const maskedKey = useSubscriptionStore((s) => s.maskedKey)
+  const [showLicenseDialog, setShowLicenseDialog] = useState(false)
 
   return (
     <div className="flex h-full flex-col">
+      {/* License Key Dialog */}
+      {showLicenseDialog && (
+        <LicenseKeyDialog onClose={() => setShowLicenseDialog(false)} />
+      )}
+
       {/* Header */}
       <header className="drag-region flex items-center justify-between border-b border-border px-6 py-3">
         <h1 className="no-drag text-lg font-semibold">Einstellungen</h1>
@@ -47,6 +59,53 @@ export function SettingsView() {
 
       <div className="flex-1 overflow-y-auto px-6 py-6">
         <div className="mx-auto max-w-2xl space-y-8">
+          {/* License Section */}
+          <section>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Lizenz
+            </h2>
+            <div className="rounded-lg border border-border bg-secondary/50 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                    isActivated ? 'bg-emerald-500/20' : 'bg-amber-500/20'
+                  }`}>
+                    {isActivated ? (
+                      <Crown className="h-5 w-5 text-emerald-400" />
+                    ) : (
+                      <Key className="h-5 w-5 text-amber-400" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">
+                      {isActivated ? 'Docmind Pro' : 'Docmind Community'}
+                    </p>
+                    {isActivated && maskedKey ? (
+                      <p className="text-xs font-mono text-muted-foreground">{maskedKey}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Kostenlos — 50 Dokumente, kein Batch-Import
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowLicenseDialog(true)}
+                  className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+                >
+                  <Key className="h-3.5 w-3.5" />
+                  {isActivated ? 'Verwalten' : 'Aktivieren'}
+                </button>
+              </div>
+              {isActivated && (
+                <div className="mt-3 flex items-center gap-1.5 text-xs text-emerald-400">
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Alle Pro-Features freigeschaltet
+                </div>
+              )}
+            </div>
+          </section>
+
           {/* Theme Section */}
           <section>
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
