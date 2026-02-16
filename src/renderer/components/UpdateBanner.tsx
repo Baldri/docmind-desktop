@@ -26,7 +26,7 @@ export function UpdateBanner() {
         setDismissed(false)
       }
     })
-    return cleanup
+    return () => { cleanup() }
   }, [])
 
   const handleDownload = useCallback(() => {

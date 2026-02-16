@@ -32,7 +32,6 @@ const THEME_OPTIONS = [
 export function SettingsView() {
   const { services, isChecking, checkStatus, restartService } = useServicesStore()
   const { theme, setTheme } = useThemeStore()
-  const tier = useSubscriptionStore((s) => s.tier)
   const isActivated = useSubscriptionStore((s) => s.isActivated)
   const maskedKey = useSubscriptionStore((s) => s.maskedKey)
   const [showLicenseDialog, setShowLicenseDialog] = useState(false)
