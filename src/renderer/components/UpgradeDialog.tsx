@@ -1,17 +1,50 @@
 import { useState } from 'react'
-import { X, Crown, ExternalLink, Key } from 'lucide-react'
+import { X, Crown, ExternalLink, Key, Users } from 'lucide-react'
 import { LicenseKeyDialog } from './LicenseKeyDialog'
+import type { SubscriptionTier } from '../../shared/types'
+
+/** Feature lists per tier — shown in the upgrade dialog */
+const PRO_FEATURES = [
+  'Unbegrenzte Dokumente',
+  'Ordner-Import (Batch)',
+  'Drag & Drop Import',
+  'Chat Export (Markdown)',
+  'Cloud APIs (Claude, GPT, Gemini)',
+  'Agentic RAG',
+  'MCP Integration',
+  'Prompt Templates',
+  'Auto-Update Installation',
+]
+
+const TEAM_FEATURES = [
+  'Alles aus Pro, plus:',
+  'Team Workspaces',
+  'Shared Knowledge Base',
+  'Rollen & Berechtigungen (RBAC)',
+  'Usage Tracking',
+  'Audit Logs',
+  'SSO (OAuth/SAML)',
+]
+
+/** Stripe checkout URLs per tier */
+const CHECKOUT_URLS: Record<string, string> = {
+  pro: 'https://buy.stripe.com/docmind-pro',
+  team: 'https://buy.stripe.com/docmind-team',
+}
 
 interface UpgradeDialogProps {
   feature: string
+  /** The minimum tier required for this feature (default: 'pro') */
+  requiredTier?: SubscriptionTier
   onClose: () => void
 }
 
 /**
- * Modal that appears when a Community user tries to use a Pro feature.
+ * Modal that appears when a Free user tries to use a gated feature.
+ * Dynamically shows Pro or Team info based on requiredTier.
  * Offers two paths: purchase via Stripe or enter an existing license key.
  */
-export function UpgradeDialog({ feature, onClose }: UpgradeDialogProps) {
+export function UpgradeDialog({ feature, requiredTier = 'pro', onClose }: UpgradeDialogProps) {
   const [showKeyDialog, setShowKeyDialog] = useState(false)
 
   if (showKeyDialog) {
@@ -24,6 +57,15 @@ export function UpgradeDialog({ feature, onClose }: UpgradeDialogProps) {
       />
     )
   }
+
+  const isTeam = requiredTier === 'team'
+  const tierLabel = isTeam ? 'Team' : 'Pro'
+  const features = isTeam ? TEAM_FEATURES : PRO_FEATURES
+  const checkoutUrl = CHECKOUT_URLS[requiredTier] ?? CHECKOUT_URLS.pro
+  const TierIcon = isTeam ? Users : Crown
+  const iconBg = isTeam ? 'bg-blue-500/20' : 'bg-amber-500/20'
+  const iconColor = isTeam ? 'text-blue-500' : 'text-amber-500'
+  const btnBg = isTeam ? 'bg-blue-500 hover:bg-blue-600' : 'bg-amber-500 hover:bg-amber-600'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -38,36 +80,26 @@ export function UpgradeDialog({ feature, onClose }: UpgradeDialogProps) {
 
         {/* Header */}
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20">
-            <Crown className="h-5 w-5 text-amber-500" />
+          <div className={`flex h-10 w-10 items-center justify-center rounded-full ${iconBg}`}>
+            <TierIcon className={`h-5 w-5 ${iconColor}`} />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Docmind Pro</h2>
+            <h2 className="text-lg font-semibold text-foreground">Docmind {tierLabel}</h2>
             <p className="text-sm text-muted-foreground">
-              {feature} erfordert ein Pro-Upgrade
+              {feature} erfordert Docmind {tierLabel}
             </p>
           </div>
         </div>
 
         {/* Features list */}
         <div className="mb-6 space-y-2 text-sm">
-          <p className="font-medium text-foreground">Pro beinhaltet:</p>
+          <p className="font-medium text-foreground">{tierLabel} beinhaltet:</p>
           <ul className="space-y-1.5 text-muted-foreground">
-            <li className="flex items-center gap-2">
-              <span className="text-emerald-500">&#10003;</span> Unbegrenzte Dokumente
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-emerald-500">&#10003;</span> Ordner-Import (Batch)
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-emerald-500">&#10003;</span> Drag & Drop Import
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-emerald-500">&#10003;</span> Chat Export (Markdown)
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="text-emerald-500">&#10003;</span> Auto-Update Installation
-            </li>
+            {features.map((f) => (
+              <li key={f} className="flex items-center gap-2">
+                <span className="text-emerald-500">&#10003;</span> {f}
+              </li>
+            ))}
           </ul>
         </div>
 
@@ -75,12 +107,12 @@ export function UpgradeDialog({ feature, onClose }: UpgradeDialogProps) {
         <div className="space-y-2">
           <button
             onClick={() => {
-              window.open('https://buy.stripe.com/docmind-pro', '_blank')
+              window.open(checkoutUrl, '_blank')
             }}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-600"
+            className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-colors ${btnBg}`}
           >
             <ExternalLink className="h-4 w-4" />
-            Pro kaufen
+            {tierLabel} kaufen
           </button>
 
           <button

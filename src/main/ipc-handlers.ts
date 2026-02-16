@@ -603,9 +603,9 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
 
   ipcMain.handle(IPC_CHANNELS.LICENSE_DEACTIVATE, () => {
     license.deactivate()
-    featureGate.setTier('community')
-    updater?.setTier('community')
-    return { tier: 'community' }
+    featureGate.setTier('free')
+    updater?.setTier('free')
+    return { tier: 'free' }
   })
 
   ipcMain.handle(IPC_CHANNELS.LICENSE_GET_STATUS, () => {

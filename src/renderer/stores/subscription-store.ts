@@ -23,7 +23,7 @@ interface SubscriptionState {
  * and the UpgradeDialog.
  */
 export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
-  tier: 'community',
+  tier: 'free',
   isActivated: false,
   maskedKey: null,
   activating: false,
@@ -40,7 +40,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
         error: null,
       })
     } catch {
-      // Preload not available — stay on community
+      // Preload not available — stay on free tier
     }
   },
 
@@ -78,7 +78,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       if (!window.electronAPI?.license) return
       await window.electronAPI.license.deactivate()
       set({
-        tier: 'community',
+        tier: 'free',
         isActivated: false,
         maskedKey: null,
         error: null,

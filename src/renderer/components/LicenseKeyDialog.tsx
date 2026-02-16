@@ -2,12 +2,20 @@ import { useState } from 'react'
 import { X, Key, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { useSubscriptionStore } from '../stores/subscription-store'
 
+/** Human-readable tier labels */
+const TIER_LABELS: Record<string, string> = {
+  free: 'Free',
+  pro: 'Pro',
+  team: 'Team',
+}
+
 interface LicenseKeyDialogProps {
   onClose: () => void
 }
 
 /**
  * Dialog for entering and managing a license key.
+ * Supports both Pro and Team keys (DOCMIND-PRO-... / DOCMIND-TEAM-...).
  * Used from UpgradeDialog and from SettingsView.
  */
 export function LicenseKeyDialog({ onClose }: LicenseKeyDialogProps) {
@@ -16,6 +24,7 @@ export function LicenseKeyDialog({ onClose }: LicenseKeyDialogProps) {
   const deactivate = useSubscriptionStore((s) => s.deactivate)
   const activating = useSubscriptionStore((s) => s.activating)
   const isActivated = useSubscriptionStore((s) => s.isActivated)
+  const tier = useSubscriptionStore((s) => s.tier)
   const maskedKey = useSubscriptionStore((s) => s.maskedKey)
   const error = useSubscriptionStore((s) => s.error)
   const [success, setSuccess] = useState(false)
@@ -34,6 +43,8 @@ export function LicenseKeyDialog({ onClose }: LicenseKeyDialogProps) {
     await deactivate()
     setSuccess(false)
   }
+
+  const tierLabel = TIER_LABELS[tier] ?? tier
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -59,7 +70,7 @@ export function LicenseKeyDialog({ onClose }: LicenseKeyDialogProps) {
           <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
             <div className="flex items-center gap-2 text-sm text-emerald-400">
               <CheckCircle className="h-4 w-4" />
-              <span>Pro-Lizenz aktiv</span>
+              <span>{tierLabel}-Lizenz aktiv</span>
             </div>
             <p className="mt-1 font-mono text-xs text-muted-foreground">{maskedKey}</p>
             <button
@@ -88,6 +99,9 @@ export function LicenseKeyDialog({ onClose }: LicenseKeyDialogProps) {
                 disabled={activating}
                 autoFocus
               />
+              <p className="mt-1.5 text-xs text-muted-foreground/60">
+                Format: DOCMIND-PRO-... oder DOCMIND-TEAM-...
+              </p>
             </div>
 
             {/* Error */}
@@ -102,7 +116,7 @@ export function LicenseKeyDialog({ onClose }: LicenseKeyDialogProps) {
             {success && (
               <div className="mb-3 flex items-center gap-2 text-sm text-emerald-400">
                 <CheckCircle className="h-4 w-4 shrink-0" />
-                <span>Pro-Lizenz erfolgreich aktiviert!</span>
+                <span>Lizenz erfolgreich aktiviert!</span>
               </div>
             )}
 

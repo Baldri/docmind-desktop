@@ -5,10 +5,11 @@
  * Users purchase a license via Stripe Checkout, receive a key by email,
  * and enter it in the app's Settings view.
  *
- * Key format: DOCMIND-PRO-{PAYLOAD}-{SIGNATURE}
- *   e.g. DOCMIND-PRO-A1B2C3D4E5F6-8a3f7b2e
+ * Key formats:
+ *   DOCMIND-PRO-{PAYLOAD}-{SIGNATURE}   → Pro license
+ *   DOCMIND-TEAM-{PAYLOAD}-{SIGNATURE}  → Team license
  *
- * The SIGNATURE is the first 8 hex chars of HMAC-SHA256("DOCMIND-PRO-{PAYLOAD}", secret).
+ * The SIGNATURE is the first 8 hex chars of HMAC-SHA256("DOCMIND-{TIER}-{PAYLOAD}", secret).
  */
 
 import { app } from 'electron'
@@ -32,9 +33,19 @@ interface LicenseStore {
   activatedAt: number
 }
 
-// ── Stripe Checkout URL ────────────────────────────────────────────────
+/** Valid tier segments in license keys (maps key segment → SubscriptionTier) */
+const KEY_TIER_MAP: Record<string, SubscriptionTier> = {
+  PRO: 'pro',
+  TEAM: 'team',
+}
 
-const STRIPE_CHECKOUT_URL = 'https://buy.stripe.com/docmind-pro'
+// ── Stripe Checkout URLs ──────────────────────────────────────────────
+
+const STRIPE_CHECKOUT_URLS: Record<SubscriptionTier, string> = {
+  free: '',
+  pro: 'https://buy.stripe.com/docmind-pro',
+  team: 'https://buy.stripe.com/docmind-team',
+}
 
 // ── LicenseActivationService ───────────────────────────────────────────
 
@@ -61,7 +72,14 @@ export class LicenseActivationService {
   private load(): LicenseStore | null {
     try {
       if (fs.existsSync(this.storePath)) {
-        return JSON.parse(fs.readFileSync(this.storePath, 'utf-8'))
+        const data = JSON.parse(fs.readFileSync(this.storePath, 'utf-8')) as LicenseStore
+        // Migrate legacy "community" tier to "free"
+        if ((data.tier as string) === 'community') {
+          data.tier = 'free'
+          this.store = data
+          this.save()
+        }
+        return data
       }
     } catch {
       // Corrupted file → fresh start
@@ -83,7 +101,7 @@ export class LicenseActivationService {
 
   getStatus(): LicenseStatus {
     if (!this.store) {
-      return { tier: 'community', isActivated: false }
+      return { tier: 'free', isActivated: false }
     }
     return {
       tier: this.store.tier,
@@ -94,15 +112,16 @@ export class LicenseActivationService {
   }
 
   getCurrentTier(): SubscriptionTier {
-    return this.store?.tier ?? 'community'
+    return this.store?.tier ?? 'free'
   }
 
-  getCheckoutUrl(): string {
-    return STRIPE_CHECKOUT_URL
+  getCheckoutUrl(tier: SubscriptionTier = 'pro'): string {
+    return STRIPE_CHECKOUT_URLS[tier] || STRIPE_CHECKOUT_URLS.pro
   }
 
   /**
    * Activate a license key. Validates format and HMAC signature.
+   * Supports both DOCMIND-PRO-... and DOCMIND-TEAM-... keys.
    */
   activate(key: string): LicenseValidationResult {
     const normalized = key.trim().toUpperCase()
@@ -115,18 +134,20 @@ export class LicenseActivationService {
       return { valid: false, error: 'Ungueltiger Lizenzschluessel' }
     }
 
+    const tier = signatureCheck.tier ?? 'pro'
+
     this.store = {
       key: normalized,
-      tier: 'pro',
+      tier,
       activatedAt: Date.now(),
     }
     this.save()
 
-    return { valid: true, tier: 'pro' }
+    return { valid: true, tier }
   }
 
   /**
-   * Deactivate current license and revert to community tier.
+   * Deactivate current license and revert to free tier.
    */
   deactivate(): void {
     this.store = null
@@ -142,15 +163,16 @@ export class LicenseActivationService {
   // ── Validation ─────────────────────────────────────────────────────
 
   /**
-   * Format check: DOCMIND-PRO-{6+ chars}-{8 hex chars}
+   * Format check: DOCMIND-{PRO|TEAM}-{6+ chars}-{8 hex chars}
    */
   private validateFormat(key: string): LicenseValidationResult {
     const parts = key.split('-')
     if (parts.length < 4 || parts[0] !== 'DOCMIND') {
       return { valid: false, error: 'Format: DOCMIND-PRO-XXXXXX-XXXXXXXX' }
     }
-    if (parts[1] !== 'PRO') {
-      return { valid: false, error: 'Unbekannter Tier: ' + parts[1] }
+    const tierSegment = parts[1]
+    if (!KEY_TIER_MAP[tierSegment]) {
+      return { valid: false, error: `Unbekannter Tier: ${tierSegment}. Erwartet: PRO oder TEAM` }
     }
     if (parts[2].length < 6) {
       return { valid: false, error: 'Schluessel-Segment zu kurz' }
@@ -176,25 +198,37 @@ export class LicenseActivationService {
     if (signature !== expected) {
       return { valid: false }
     }
-    return { valid: true, tier: 'pro' }
+
+    // Extract tier from key segment
+    const tierSegment = parts[1]
+    const tier = KEY_TIER_MAP[tierSegment] ?? 'pro'
+
+    return { valid: true, tier }
   }
 
   /**
-   * Mask key for display: DOCMIND-PRO-A1B2...F6-****
+   * Mask key for display: DOCMIND-PRO-A1B2...F6-**** or DOCMIND-TEAM-A1B2...F6-****
    */
   private maskKey(key: string): string {
     const parts = key.split('-')
     if (parts.length < 4) return '****'
+    const tierSegment = parts[1] // PRO or TEAM
     const payload = parts[2]
     const masked = payload.slice(0, 4) + '...' + payload.slice(-2)
-    return `DOCMIND-PRO-${masked}-****`
+    return `DOCMIND-${tierSegment}-${masked}-****`
   }
 
   // ── Key Generation (for admin CLI / testing) ───────────────────────
 
-  static generateKey(payload?: string): string {
+  /**
+   * Generate a license key for a given tier.
+   * @param tier - 'pro' or 'team'
+   * @param payload - Custom payload string (random if omitted)
+   */
+  static generateKey(tier: 'pro' | 'team' = 'pro', payload?: string): string {
+    const tierSegment = tier.toUpperCase()
     const randomPayload = payload || crypto.randomBytes(6).toString('hex').toUpperCase()
-    const message = `DOCMIND-PRO-${randomPayload}`
+    const message = `DOCMIND-${tierSegment}-${randomPayload}`
     const signature = crypto
       .createHmac('sha256', LICENSE_HMAC_SECRET)
       .update(message)

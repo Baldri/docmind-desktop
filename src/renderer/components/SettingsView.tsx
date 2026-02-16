@@ -32,9 +32,12 @@ const THEME_OPTIONS = [
 export function SettingsView() {
   const { services, isChecking, checkStatus, restartService } = useServicesStore()
   const { theme, setTheme } = useThemeStore()
+  const tier = useSubscriptionStore((s) => s.tier)
   const isActivated = useSubscriptionStore((s) => s.isActivated)
   const maskedKey = useSubscriptionStore((s) => s.maskedKey)
   const [showLicenseDialog, setShowLicenseDialog] = useState(false)
+
+  const tierLabel = tier === 'team' ? 'Team' : tier === 'pro' ? 'Pro' : 'Free'
 
   return (
     <div className="flex h-full flex-col">
@@ -77,7 +80,7 @@ export function SettingsView() {
                   </div>
                   <div>
                     <p className="text-sm font-medium">
-                      {isActivated ? 'Docmind Pro' : 'Docmind Community'}
+                      Docmind {tierLabel}
                     </p>
                     {isActivated && maskedKey ? (
                       <p className="text-xs font-mono text-muted-foreground">{maskedKey}</p>
@@ -99,7 +102,7 @@ export function SettingsView() {
               {isActivated && (
                 <div className="mt-3 flex items-center gap-1.5 text-xs text-emerald-400">
                   <CheckCircle className="h-3.5 w-3.5" />
-                  Alle Pro-Features freigeschaltet
+                  Alle {tierLabel}-Features freigeschaltet
                 </div>
               )}
             </div>

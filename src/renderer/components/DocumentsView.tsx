@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { useSubscriptionStore } from '../stores/subscription-store'
 import { UpgradeDialog } from './UpgradeDialog'
-import { COMMUNITY_DOCUMENT_LIMIT } from '../../shared/types'
+import { FREE_DOCUMENT_LIMIT } from '../../shared/types'
 
 interface FileStats {
   total: number
@@ -58,7 +58,7 @@ export function DocumentsView() {
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [upgradeFeature, setUpgradeFeature] = useState('')
   const tier = useSubscriptionStore((s) => s.tier)
-  const isCommunity = tier === 'community'
+  const isFree = tier === 'free'
 
   const loadStats = useCallback(async () => {
     try {
@@ -105,7 +105,7 @@ export function DocumentsView() {
   }
 
   const handleUploadFolder = async () => {
-    if (isCommunity) {
+    if (isFree) {
       setUpgradeFeature('Ordner-Import')
       setShowUpgrade(true)
       return
@@ -158,7 +158,7 @@ export function DocumentsView() {
     setIsDragOver(false)
     setMessage(null)
 
-    if (isCommunity) {
+    if (isFree) {
       setUpgradeFeature('Drag & Drop Import')
       setShowUpgrade(true)
       return
@@ -249,8 +249,8 @@ export function DocumentsView() {
             <p className="mt-1 text-sm text-muted-foreground">
               PDF, DOCX, TXT, MD, PPTX, XLSX, CSV, HTML
             </p>
-            {isCommunity && (
-              <p className="mt-2 text-xs text-amber-400">Pro-Feature — erfordert Docmind Pro</p>
+            {isFree && (
+              <p className="mt-2 text-xs text-amber-400">Erfordert Docmind Pro</p>
             )}
           </div>
         </div>
@@ -279,7 +279,7 @@ export function DocumentsView() {
               <FolderOpen className="h-3.5 w-3.5" />
             )}
             Ordner
-            {isCommunity && <Crown className="h-3 w-3 text-amber-400" />}
+            {isFree && <Crown className="h-3 w-3 text-amber-400" />}
           </button>
           <button
             onClick={handleUpload}
@@ -345,24 +345,24 @@ export function DocumentsView() {
             </div>
           )}
 
-          {/* Document Limit (Community) */}
-          {isCommunity && stats && !stats.error && (
+          {/* Document Limit (Free tier) */}
+          {isFree && stats && !stats.error && (
             <div className="rounded-lg border border-border bg-secondary/50 px-4 py-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Dokumentenlimit</span>
                 <span className="font-mono">
-                  {stats.total} / {COMMUNITY_DOCUMENT_LIMIT}
+                  {stats.total} / {FREE_DOCUMENT_LIMIT}
                 </span>
               </div>
               <div className="mt-2 h-1.5 rounded-full bg-border">
                 <div
                   className={`h-full rounded-full transition-all ${
-                    stats.total >= COMMUNITY_DOCUMENT_LIMIT ? 'bg-red-500' : 'bg-primary'
+                    stats.total >= FREE_DOCUMENT_LIMIT ? 'bg-red-500' : 'bg-primary'
                   }`}
-                  style={{ width: `${Math.min((stats.total / COMMUNITY_DOCUMENT_LIMIT) * 100, 100)}%` }}
+                  style={{ width: `${Math.min((stats.total / FREE_DOCUMENT_LIMIT) * 100, 100)}%` }}
                 />
               </div>
-              {stats.total >= COMMUNITY_DOCUMENT_LIMIT && (
+              {stats.total >= FREE_DOCUMENT_LIMIT && (
                 <p className="mt-2 text-xs text-amber-400">
                   Limit erreicht — Upgrade auf Pro fuer unbegrenzte Dokumente
                 </p>

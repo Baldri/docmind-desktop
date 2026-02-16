@@ -192,15 +192,38 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 // ── Subscription & Feature Gating ──────────────────────────────────────
 
-export type SubscriptionTier = 'community' | 'pro'
+/**
+ * Subscription tiers (ascending order of capability):
+ *   free  → Basic local usage (was "community" in early builds)
+ *   pro   → Power users, freelancers (CHF 24/Mt.)
+ *   team  → Teams & KMU, min. 5 users (CHF 69/User/Mt.)
+ *
+ * Enterprise is handled off-app (custom contracts, no license key).
+ */
+export type SubscriptionTier = 'free' | 'pro' | 'team'
 
-/** Features that require a Pro license */
+/**
+ * All gated features.
+ * Each feature is unlocked at a specific tier level (see feature-gate-manager).
+ */
 export type DocmindFeature =
+  // Pro features
   | 'folder-import'
   | 'drag-drop-import'
   | 'chat-export'
   | 'unlimited-documents'
   | 'auto-update-install'
+  | 'cloud-apis'
+  | 'agentic-rag'
+  | 'mcp-integration'
+  | 'prompt-templates'
+  // Team features
+  | 'team-workspaces'
+  | 'shared-knowledge-base'
+  | 'rbac'
+  | 'usage-tracking'
+  | 'audit-logs'
+  | 'sso'
 
 export interface LicenseStatus {
   tier: SubscriptionTier
@@ -215,5 +238,10 @@ export interface FeatureGateResult {
   requiredTier?: SubscriptionTier
 }
 
-/** Document limit for Community tier */
-export const COMMUNITY_DOCUMENT_LIMIT = 50
+/** Document limit for Free tier */
+export const FREE_DOCUMENT_LIMIT = 50
+
+/**
+ * @deprecated Use FREE_DOCUMENT_LIMIT instead. Kept for backward compatibility.
+ */
+export const COMMUNITY_DOCUMENT_LIMIT = FREE_DOCUMENT_LIMIT

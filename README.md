@@ -4,19 +4,31 @@
 
 Docmind ist eine Desktop-Applikation fuer Bildung und Wissensarbeit. Sie indexiert lokale Dokumente (PDF, DOCX, TXT, MD, PPTX, XLSX, CSV, HTML) in einer Vektordatenbank und ermoeglicht semantische Suche sowie KI-gestuetzte Frage-Antwort-Gespraeche — komplett lokal auf deinem Rechner.
 
-## Features
+## Features & Preise
 
-| Feature | Community (kostenlos) | Pro |
-|---------|----------------------|-----|
-| Dokumentenindexierung | bis 50 Dokumente | unbegrenzt |
-| Einzeldatei-Upload | ja | ja |
-| Ordner-Import | — | ja |
-| Drag & Drop Import | — | ja |
-| Hybride Suche (BM25 + Semantic) | ja | ja |
-| KI-Chat mit Quellenangaben | ja | ja |
-| Chat-Export (Markdown) | — | ja |
-| Auto-Updates | manuell | silent |
-| Dark/Light/System Theme | ja | ja |
+| Feature | Free (CHF 0) | Pro (CHF 24/Mt.) | Team (CHF 69/User/Mt.) |
+|---------|:---:|:---:|:---:|
+| Dokumentenindexierung | bis 50 | unbegrenzt | unbegrenzt |
+| Einzeldatei-Upload | ✓ | ✓ | ✓ |
+| Ordner-Import (Batch) | — | ✓ | ✓ |
+| Drag & Drop Import | — | ✓ | ✓ |
+| Hybride Suche (BM25 + Semantic) | ✓ | ✓ | ✓ |
+| KI-Chat mit Quellenangaben | ✓ | ✓ | ✓ |
+| Chat-Export (Markdown) | — | ✓ | ✓ |
+| Cloud APIs (Claude, GPT, Gemini) | — | ✓ | ✓ |
+| Agentic RAG | — | ✓ | ✓ |
+| MCP Integration | — | ✓ | ✓ |
+| Prompt Templates | — | ✓ | ✓ |
+| Auto-Updates | manuell | silent | silent |
+| Team Workspaces | — | — | ✓ |
+| Shared Knowledge Base | — | — | ✓ |
+| Rollen & Berechtigungen (RBAC) | — | — | ✓ |
+| Usage Tracking | — | — | ✓ |
+| Audit Logs | — | — | ✓ |
+| SSO (OAuth/SAML) | — | — | ✓ |
+| Dark/Light/System Theme | ✓ | ✓ | ✓ |
+
+> **Enterprise** (auf Anfrage) — On-Premise, LDAP/AD, Compliance Dashboard, SLA, Custom Integrations, White-Label.
 
 ## Voraussetzungen
 
@@ -132,19 +144,20 @@ scripts/          # Build-Helfer (Secret Injection, Notarize)
 
 ## Lizenzierung
 
-Docmind verwendet ein **Community/Pro Tier-Modell**:
+Docmind verwendet ein **Free / Pro / Team Tier-Modell**:
 
-- **Community** (kostenlos) — Vollstaendige Such- und Chat-Funktionalitaet mit Dokumentenlimit
-- **Pro** — Alle Features freigeschaltet via HMAC-validiertem Lizenzschluessel
+- **Free** (kostenlos) — Lokale Modelle (Ollama), bis 50 Dokumente, Basic Search
+- **Pro** (CHF 24/Mt.) — Cloud APIs, unbegrenzte Dokumente, Agentic RAG, MCP, Templates, Auto-Updates
+- **Team** (CHF 69/User/Mt., min. 5 User) — Workspaces, Shared KB, RBAC, Audit Logs, SSO
 
-Pro-Lizenzen sind ueber [Stripe Checkout](https://buy.stripe.com/docmind-pro) erhaeltlich. Nach dem Kauf erhaeltst du einen Lizenzschluessel per E-Mail, den du unter Einstellungen → Lizenz aktivierst.
+Lizenzen sind ueber [Stripe Checkout](https://docmind.ch/#pricing) erhaeltlich. Nach dem Kauf erhaeltst du einen Lizenzschluessel per E-Mail (`DOCMIND-PRO-...` oder `DOCMIND-TEAM-...`), den du unter Einstellungen → Lizenz aktivierst.
 
 ## Auto-Updates
 
 Docmind prueft automatisch auf neue Versionen via GitHub Releases:
 
-- **Pro:** Updates werden im Hintergrund heruntergeladen und beim naechsten App-Neustart installiert
-- **Community:** Ein Banner zeigt an wenn ein Update verfuegbar ist — Download und Installation muessen manuell angestossen werden
+- **Pro / Team:** Updates werden im Hintergrund heruntergeladen und beim naechsten App-Neustart installiert
+- **Free:** Ein Banner zeigt an wenn ein Update verfuegbar ist — Download und Installation muessen manuell angestossen werden
 
 > **Hinweis:** Auto-Updates auf macOS erfordern Code Signing. Ohne Signatur koennen Updates erkannt, aber nicht automatisch installiert werden. In diesem Fall kann das Update manuell von der Releases-Seite heruntergeladen werden.
 

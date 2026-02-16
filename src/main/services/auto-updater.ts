@@ -8,12 +8,12 @@ import type { UpdateInfo, SubscriptionTier } from '../../shared/types'
  * Uses electron-updater with the publish config from electron-builder.yml.
  * Update behaviour depends on the subscription tier:
  *
- * **Pro users** — Silent updates:
+ * **Pro / Team users** — Silent updates:
  *   1. App starts → checkForUpdates()
  *   2. Update available → auto-download in background
  *   3. Download completes → installs silently on next app quit
  *
- * **Community users** — Manual updates:
+ * **Free users** — Manual updates:
  *   1. App starts → checkForUpdates()
  *   2. Update available → notify renderer via 'updater:status' event
  *   3. User clicks "Download" → downloadUpdate()
@@ -27,10 +27,10 @@ export class AutoUpdaterService {
   private currentStatus: UpdateInfo = { status: 'idle' }
   private checkIntervalMs = 4 * 60 * 60 * 1000 // 4 hours
   private intervalId: ReturnType<typeof setInterval> | null = null
-  private tier: SubscriptionTier = 'community'
+  private tier: SubscriptionTier = 'free'
 
   constructor() {
-    // Default: Community mode — no auto-download
+    // Default: Free mode — no auto-download
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = false
     autoUpdater.allowPrerelease = false
@@ -44,10 +44,11 @@ export class AutoUpdaterService {
    */
   setTier(tier: SubscriptionTier): void {
     this.tier = tier
-    const isPro = tier === 'pro'
-    autoUpdater.autoDownload = isPro
-    autoUpdater.autoInstallOnAppQuit = isPro
-    console.log(`[Updater] Tier set to ${tier} — autoDownload=${isPro}`)
+    // Pro and Team tiers get auto-download + auto-install
+    const isPaid = tier === 'pro' || tier === 'team'
+    autoUpdater.autoDownload = isPaid
+    autoUpdater.autoInstallOnAppQuit = isPaid
+    console.log(`[Updater] Tier set to ${tier} — autoDownload=${isPaid}`)
   }
 
   /**
@@ -93,7 +94,7 @@ export class AutoUpdaterService {
 
   /**
    * Start downloading the available update.
-   * Only needed for Community tier — Pro auto-downloads.
+   * Only needed for Free tier — Pro/Team auto-downloads.
    */
   async downloadUpdate(): Promise<void> {
     try {
@@ -137,8 +138,8 @@ export class AutoUpdaterService {
           ? info.releaseNotes
           : undefined,
       })
-      // Pro users: autoDownload=true handles this automatically.
-      // Community users: renderer shows banner, user must click "Download".
+      // Pro/Team users: autoDownload=true handles this automatically.
+      // Free users: renderer shows banner, user must click "Download".
     })
 
     autoUpdater.on('update-not-available', (info: ElectronUpdateInfo) => {
@@ -148,8 +149,8 @@ export class AutoUpdaterService {
 
     autoUpdater.on('download-progress', (progress) => {
       const percent = Math.round(progress.percent)
-      // Only log every 10% for Pro (silent) to avoid spamming
-      if (this.tier === 'community' || percent % 10 === 0) {
+      // Only log every 10% for paid tiers (silent) to avoid spamming
+      if (this.tier === 'free' || percent % 10 === 0) {
         console.log(`[Updater] Downloading: ${percent}%`)
       }
       this.updateStatus({
@@ -167,8 +168,8 @@ export class AutoUpdaterService {
           ? info.releaseNotes
           : undefined,
       })
-      // Pro users: autoInstallOnAppQuit=true → installs on next quit.
-      // Community users: renderer shows "Install & Restart" button.
+      // Pro/Team users: autoInstallOnAppQuit=true → installs on next quit.
+      // Free users: renderer shows "Install & Restart" button.
     })
 
     autoUpdater.on('error', (error) => {

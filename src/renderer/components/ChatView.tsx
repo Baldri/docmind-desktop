@@ -23,7 +23,7 @@ export function ChatView() {
   const [exportMsg, setExportMsg] = useState<string | null>(null)
   const [showUpgrade, setShowUpgrade] = useState(false)
   const tier = useSubscriptionStore((s) => s.tier)
-  const isCommunity = tier === 'community'
+  const isFree = tier === 'free'
 
   const {
     messages,
@@ -96,7 +96,7 @@ export function ChatView() {
    */
   const handleExport = async () => {
     if (messages.length === 0) return
-    if (isCommunity) {
+    if (isFree) {
       setShowUpgrade(true)
       return
     }
@@ -174,10 +174,10 @@ export function ChatView() {
               <button
                 onClick={handleExport}
                 className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
-                title={isCommunity ? 'Chat Export (Pro)' : 'Chat exportieren (Markdown)'}
+                title={isFree ? 'Chat Export (Pro)' : 'Chat exportieren (Markdown)'}
               >
                 <Download className="h-3.5 w-3.5" />
-                {isCommunity && <Crown className="h-3 w-3 text-amber-400" />}
+                {isFree && <Crown className="h-3 w-3 text-amber-400" />}
               </button>
               <button
                 onClick={clearMessages}
