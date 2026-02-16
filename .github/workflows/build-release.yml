@@ -111,20 +111,20 @@ jobs:
       # electron-builder detects GH_TOKEN and publishes to GitHub Releases.
       # --publish always: uploads artifacts to the release matching the tag.
       # For workflow_dispatch (no tag): creates a draft release.
+      #
+      # IMPORTANT: Do NOT pass empty CSC_LINK or WIN_CSC_LINK — electron-builder
+      # resolves "" as CWD path and crashes. Only set signing vars when secrets
+      # are configured. CSC_IDENTITY_AUTO_DISCOVERY=false disables auto-discovery.
       - name: Package & publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS code signing (optional — skipped when secrets not set)
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK && 'true' || 'false' }}
-          # macOS notarization (optional — skipped when secrets not set)
+          # Disable auto-discovery of signing identities (prevents crashes
+          # when no certificate is available on macOS/Windows)
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # macOS notarization (safe to set — skipped by script when empty)
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Windows code signing (optional — skipped when secrets not set)
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: npx electron-builder ${{ matrix.builder_flags }} --publish always
 
       # ── Upload artifacts (backup, independent of Release) ───────────
