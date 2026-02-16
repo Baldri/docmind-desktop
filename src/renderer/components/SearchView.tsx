@@ -121,6 +121,12 @@ export function SearchView() {
 /**
  * Single search result card with score breakdown.
  */
+/** Format a score safely — returns "—" if the value is nullish or NaN */
+function fmtScore(score: number | null | undefined): string {
+  if (score == null || Number.isNaN(score)) return '—'
+  return `${(score * 100).toFixed(0)}%`
+}
+
 function ResultCard({ result }: { result: HybridSearchResult }) {
   return (
     <div className="rounded-lg border border-border bg-secondary/50 p-4 transition-colors hover:bg-secondary">
@@ -138,7 +144,7 @@ function ResultCard({ result }: { result: HybridSearchResult }) {
           )}
         </div>
         <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400">
-          {(result.combined_score * 100).toFixed(0)}%
+          {fmtScore(result.combined_score)}
         </span>
       </div>
 
@@ -150,10 +156,10 @@ function ResultCard({ result }: { result: HybridSearchResult }) {
       {/* Score breakdown: keyword vs semantic */}
       <div className="mt-2 flex gap-3 text-[10px] text-muted-foreground/60">
         <span>
-          BM25: {(result.keyword_score * 100).toFixed(0)}%
+          BM25: {fmtScore(result.keyword_score)}
         </span>
         <span>
-          Semantic: {(result.semantic_score * 100).toFixed(0)}%
+          Semantic: {fmtScore(result.semantic_score)}
         </span>
       </div>
     </div>

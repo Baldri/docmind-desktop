@@ -119,7 +119,7 @@ export function ChatView() {
         if (msg.sources && msg.sources.length > 0) {
           lines.push('### Quellen', '')
           for (const src of msg.sources) {
-            const score = src.score != null ? ` (${(src.score * 100).toFixed(0)}%)` : ''
+            const score = src.score != null && !Number.isNaN(src.score) ? ` (${(src.score * 100).toFixed(0)}%)` : ''
             lines.push(`- **${src.file_name || 'Dokument'}**${score}`)
           }
           lines.push('')
@@ -390,7 +390,7 @@ function SourcesList({ sources }: { sources: ChatSource[] }) {
               <span className="flex-1 truncate">
                 {src.file_name || 'Dokument'}
               </span>
-              {src.score != null && (
+              {src.score != null && !Number.isNaN(src.score) && (
                 <span className="shrink-0 text-emerald-400">
                   {(src.score * 100).toFixed(0)}%
                 </span>
