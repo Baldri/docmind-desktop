@@ -5,6 +5,7 @@ import { QdrantSidecar } from './services/qdrant-sidecar'
 import { PythonSidecar } from './services/python-sidecar'
 import { OllamaChecker } from './services/ollama-checker'
 import { AutoUpdaterService } from './services/auto-updater'
+import { getLicenseService } from './services/license-activation'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -126,7 +127,10 @@ app.whenReady().then(async () => {
   createWindow()
 
   // Start auto-updater after window is created (packaged builds only)
+  // Sync updater tier with license status for silent/manual update behaviour
   if (updater) {
+    const license = getLicenseService()
+    updater.setTier(license.getCurrentTier())
     updater.start()
   }
 

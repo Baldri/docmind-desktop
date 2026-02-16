@@ -1,16 +1,21 @@
 import { BrowserWindow, app } from 'electron'
 import { autoUpdater, type UpdateInfo as ElectronUpdateInfo } from 'electron-updater'
-import type { UpdateInfo } from '../../shared/types'
+import type { UpdateInfo, SubscriptionTier } from '../../shared/types'
 
 /**
  * Manages automatic application updates via GitHub Releases.
  *
  * Uses electron-updater with the publish config from electron-builder.yml.
- * Updates are NOT auto-downloaded — the user must explicitly confirm.
+ * Update behaviour depends on the subscription tier:
  *
- * Flow:
- *   1. App starts → checkForUpdates() after a short delay
- *   2. If update available → notify renderer via 'updater:status' event
+ * **Pro users** — Silent updates:
+ *   1. App starts → checkForUpdates()
+ *   2. Update available → auto-download in background
+ *   3. Download completes → installs silently on next app quit
+ *
+ * **Community users** — Manual updates:
+ *   1. App starts → checkForUpdates()
+ *   2. Update available → notify renderer via 'updater:status' event
  *   3. User clicks "Download" → downloadUpdate()
  *   4. Download completes → user clicks "Install & Restart" → installUpdate()
  *
@@ -22,16 +27,27 @@ export class AutoUpdaterService {
   private currentStatus: UpdateInfo = { status: 'idle' }
   private checkIntervalMs = 4 * 60 * 60 * 1000 // 4 hours
   private intervalId: ReturnType<typeof setInterval> | null = null
+  private tier: SubscriptionTier = 'community'
 
   constructor() {
-    // Disable auto-download — let the user decide
+    // Default: Community mode — no auto-download
     autoUpdater.autoDownload = false
-    autoUpdater.autoInstallOnAppQuit = true
-
-    // Allow prerelease updates if running a prerelease version
+    autoUpdater.autoInstallOnAppQuit = false
     autoUpdater.allowPrerelease = false
 
     this.setupEventListeners()
+  }
+
+  /**
+   * Update the subscription tier — controls auto-download behaviour.
+   * Called by main process when license status changes.
+   */
+  setTier(tier: SubscriptionTier): void {
+    this.tier = tier
+    const isPro = tier === 'pro'
+    autoUpdater.autoDownload = isPro
+    autoUpdater.autoInstallOnAppQuit = isPro
+    console.log(`[Updater] Tier set to ${tier} — autoDownload=${isPro}`)
   }
 
   /**
@@ -77,7 +93,7 @@ export class AutoUpdaterService {
 
   /**
    * Start downloading the available update.
-   * Only call after receiving 'available' status.
+   * Only needed for Community tier — Pro auto-downloads.
    */
   async downloadUpdate(): Promise<void> {
     try {
@@ -113,7 +129,7 @@ export class AutoUpdaterService {
     })
 
     autoUpdater.on('update-available', (info: ElectronUpdateInfo) => {
-      console.log(`[Updater] Update available: v${info.version}`)
+      console.log(`[Updater] Update available: v${info.version} (tier=${this.tier})`)
       this.updateStatus({
         status: 'available',
         version: info.version,
@@ -121,6 +137,8 @@ export class AutoUpdaterService {
           ? info.releaseNotes
           : undefined,
       })
+      // Pro users: autoDownload=true handles this automatically.
+      // Community users: renderer shows banner, user must click "Download".
     })
 
     autoUpdater.on('update-not-available', (info: ElectronUpdateInfo) => {
@@ -130,7 +148,10 @@ export class AutoUpdaterService {
 
     autoUpdater.on('download-progress', (progress) => {
       const percent = Math.round(progress.percent)
-      console.log(`[Updater] Downloading: ${percent}%`)
+      // Only log every 10% for Pro (silent) to avoid spamming
+      if (this.tier === 'community' || percent % 10 === 0) {
+        console.log(`[Updater] Downloading: ${percent}%`)
+      }
       this.updateStatus({
         status: 'downloading',
         downloadPercent: percent,
@@ -138,7 +159,7 @@ export class AutoUpdaterService {
     })
 
     autoUpdater.on('update-downloaded', (info: ElectronUpdateInfo) => {
-      console.log(`[Updater] Update downloaded: v${info.version}`)
+      console.log(`[Updater] Update downloaded: v${info.version} (tier=${this.tier})`)
       this.updateStatus({
         status: 'downloaded',
         version: info.version,
@@ -146,6 +167,8 @@ export class AutoUpdaterService {
           ? info.releaseNotes
           : undefined,
       })
+      // Pro users: autoInstallOnAppQuit=true → installs on next quit.
+      // Community users: renderer shows "Install & Restart" button.
     })
 
     autoUpdater.on('error', (error) => {

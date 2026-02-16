@@ -596,6 +596,7 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
     const result = license.activate(key)
     if (result.valid && result.tier) {
       featureGate.setTier(result.tier)
+      updater?.setTier(result.tier)
     }
     return result
   })
@@ -603,6 +604,7 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
   ipcMain.handle(IPC_CHANNELS.LICENSE_DEACTIVATE, () => {
     license.deactivate()
     featureGate.setTier('community')
+    updater?.setTier('community')
     return { tier: 'community' }
   })
 
