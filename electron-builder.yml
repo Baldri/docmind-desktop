@@ -1,6 +1,6 @@
 appId: com.docmind.app
 productName: Docmind
-copyright: Copyright 2026 digital nalu GmbH
+copyright: Copyright 2026 digital opua GmbH
 
 directories:
   output: release
@@ -17,7 +17,7 @@ mac:
   # Code signing: set CSC_LINK + CSC_KEY_PASSWORD env vars in CI.
   # When CSC_LINK is absent, electron-builder skips signing automatically.
   # Remove 'identity: null' once certificates are configured.
-  identity: null
+  identity: "Developer ID Application: digital opua GmbH (A336Z3X5AA)"
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
