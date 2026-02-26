@@ -17,14 +17,14 @@ mac:
   # Code signing: set CSC_LINK + CSC_KEY_PASSWORD env vars in CI.
   # When CSC_LINK is absent, electron-builder skips signing automatically.
   # Remove 'identity: null' once certificates are configured.
-  identity: "Developer ID Application: digital opua GmbH (A336Z3X5AA)"
+  identity: "digital opua GmbH (A336Z3X5AA)"
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
 
 # Notarization: requires APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD,
 # and APPLE_TEAM_ID env vars. Skipped when not set.
-afterSign: scripts/notarize.js
+# afterSign: scripts/notarize.js  # Disabled — notarize manually after build
 
 # ── Windows ──────────────────────────────────────────────────────────
 win:
