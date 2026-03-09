@@ -95,31 +95,32 @@ export function App() {
       {/* Onboarding Tour Overlay */}
       {showOnboarding && <OnboardingTour onComplete={handleOnboardingComplete} />}
 
-      {/* Sidebar */}
-      <aside className="flex w-16 flex-col items-center border-r border-border bg-slate-100 dark:bg-slate-950 py-4">
+      {/* Sidebar — icon-only on small screens, icons+labels on lg+ */}
+      <aside className="flex w-16 lg:w-48 flex-col border-r border-border bg-slate-100 dark:bg-slate-950 py-4">
         {/* macOS drag region */}
         <div className="drag-region mb-6 h-4 w-full" />
 
         {/* Navigation */}
-        <nav className="no-drag flex flex-1 flex-col gap-2">
+        <nav className="no-drag flex flex-1 flex-col gap-1 px-2">
           {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveView(id)}
-              className={`group flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${
+              className={`group flex h-10 items-center justify-center lg:justify-start rounded-lg transition-colors lg:px-3 lg:gap-2 ${
                 activeView === id
                   ? 'bg-primary/20 text-primary'
                   : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
               }`}
               title={`${label} (⌘${NAV_ITEMS.findIndex((n) => n.id === id) + 1})`}
             >
-              <Icon className="h-5 w-5" />
+              <Icon className="h-5 w-5 shrink-0" />
+              <span className="hidden lg:inline text-sm font-medium">{label}</span>
             </button>
           ))}
         </nav>
 
         {/* Service Status (bottom) */}
-        <div className="no-drag mt-auto">
+        <div className="no-drag mt-auto flex justify-center lg:px-2">
           <ServiceStatus />
         </div>
       </aside>

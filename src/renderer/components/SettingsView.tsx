@@ -201,7 +201,7 @@ export function SettingsView() {
             <div className="rounded-lg border border-border bg-secondary/50 p-4">
               <div className="space-y-2 text-sm">
                 {[
-                  ['⌘1 – ⌘4', 'Ansicht wechseln'],
+                  ['⌘1 – ⌘5', 'Ansicht wechseln'],
                   ['⌘K', 'Suche oeffnen'],
                   ['⌘N', 'Neuer Chat'],
                   ['⌘⇧⌫', 'Chat loeschen'],
