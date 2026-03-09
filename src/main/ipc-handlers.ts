@@ -630,4 +630,52 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
   ipcMain.handle(IPC_CHANNELS.FEATURE_GET_TIER, () => {
     return featureGate.getTier()
   })
+
+  // ── Graph RAG ──────────────────────────────────────────────────────
+  // POST /api/v1/graph/entities — top entities with co-occurrence counts
+  // POST /api/v1/graph/neighbors — documents + co-entities for entity
+  // POST /api/v1/graph/visualize — nodes + edges for d3-force graph
+
+  ipcMain.handle(IPC_CHANNELS.GRAPH_ENTITIES, async (_event, entityType?: string, limit?: number, domain?: string) => {
+    try {
+      const body: Record<string, unknown> = {
+        entity_type: entityType ?? 'persons',
+        limit: limit ?? 50,
+      }
+      if (domain) body.domain = domain
+      return await postJSON(`${DASHBOARD_API}/graph/entities`, body)
+    } catch (error) {
+      console.error('[IPC] Graph entities error:', error)
+      return { entities: [], total: 0, error: String(error) }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.GRAPH_NEIGHBORS, async (_event, entityName: string, entityType?: string, limit?: number) => {
+    try {
+      const body: Record<string, unknown> = {
+        entity_name: entityName,
+        entity_type: entityType ?? 'persons',
+        limit: limit ?? 20,
+      }
+      return await postJSON(`${DASHBOARD_API}/graph/neighbors`, body)
+    } catch (error) {
+      console.error('[IPC] Graph neighbors error:', error)
+      return { entity: entityName, documents: [], co_entities: [], error: String(error) }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.GRAPH_VISUALIZE, async (_event, entityTypes?: string[], minCount?: number, limit?: number, domain?: string) => {
+    try {
+      const body: Record<string, unknown> = {
+        entity_types: entityTypes ?? ['persons', 'organizations', 'locations'],
+        min_count: minCount ?? 2,
+        limit: limit ?? 100,
+      }
+      if (domain) body.domain = domain
+      return await postJSON(`${DASHBOARD_API}/graph/visualize`, body)
+    } catch (error) {
+      console.error('[IPC] Graph visualize error:', error)
+      return { nodes: [], edges: [], stats: { node_count: 0, edge_count: 0, total_entities_scanned: 0 }, error: String(error) }
+    }
+  })
 }

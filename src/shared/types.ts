@@ -44,6 +44,11 @@ export const IPC_CHANNELS = {
   // Feature Gate
   FEATURE_CHECK: 'feature:check',
   FEATURE_GET_TIER: 'feature:getTier',
+
+  // Graph RAG
+  GRAPH_ENTITIES: 'graph:entities',
+  GRAPH_NEIGHBORS: 'graph:neighbors',
+  GRAPH_VISUALIZE: 'graph:visualize',
 } as const
 
 // ── Service Status ──────────────────────────────────────────────────────
@@ -272,3 +277,52 @@ export const FREE_DOCUMENT_LIMIT = 50
  * @deprecated Use FREE_DOCUMENT_LIMIT instead. Kept for backward compatibility.
  */
 export const COMMUNITY_DOCUMENT_LIMIT = FREE_DOCUMENT_LIMIT
+
+// ── Graph RAG ──────────────────────────────────────────────────────────
+
+export interface GraphNode {
+  id: string
+  label: string
+  type: 'entity' | 'document'
+  size: number
+}
+
+export interface GraphEdge {
+  source: string
+  target: string
+  weight: number
+}
+
+export interface GraphData {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  stats: {
+    node_count: number
+    edge_count: number
+    total_entities_scanned: number
+  }
+}
+
+export interface GraphEntityItem {
+  name: string
+  count: number
+  entity_type: string
+}
+
+export interface GraphEntitiesResponse {
+  entities: GraphEntityItem[]
+  total: number
+}
+
+export interface GraphNeighborDocument {
+  file_name: string
+  file_path: string
+  document_type: string
+  score: number
+}
+
+export interface GraphNeighborsResponse {
+  entity: string
+  documents: GraphNeighborDocument[]
+  co_entities: GraphEntityItem[]
+}

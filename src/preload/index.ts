@@ -158,6 +158,18 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.FEATURE_GET_TIER),
   },
 
+  // ── Graph RAG ─────────────────────────────────────────────────────────
+  graph: {
+    entities: (entityType?: string, limit?: number, domain?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.GRAPH_ENTITIES, entityType, limit, domain),
+
+    neighbors: (entityName: string, entityType?: string, limit?: number) =>
+      ipcRenderer.invoke(IPC_CHANNELS.GRAPH_NEIGHBORS, entityName, entityType, limit),
+
+    visualize: (entityTypes?: string[], minCount?: number, limit?: number, domain?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.GRAPH_VISUALIZE, entityTypes, minCount, limit, domain),
+  },
+
   // ── Platform Info ───────────────────────────────────────────────────
   platform: process.platform as 'darwin' | 'win32' | 'linux',
 }
