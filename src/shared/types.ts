@@ -68,6 +68,11 @@ export interface SearchOptions {
   semanticWeight?: number
   domain?: string
   language?: string
+  // Pipeline params — sent to backend, ignored if Phase A not active
+  mmrEnabled?: boolean
+  mmrLambda?: number
+  intentEnabled?: boolean
+  rerankingEnabled?: boolean
 }
 
 /**
