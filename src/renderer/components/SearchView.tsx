@@ -1,7 +1,12 @@
 import { useState } from 'react'
-import { Search, Loader2, FileText, X } from 'lucide-react'
+import { Search, Loader2, FileText, X, Filter } from 'lucide-react'
 import { useSearchStore } from '../stores/search-store'
+import { RelevanceIndicator } from './RelevanceIndicator'
 import type { HybridSearchResult } from '../../shared/types'
+
+const DOMAIN_OPTIONS = ['', 'Business', 'Education', 'Personal'] as const
+const LANGUAGE_OPTIONS = ['', 'de', 'en', 'fr', 'it'] as const
+const LIMIT_OPTIONS = [5, 10, 20, 50] as const
 
 /**
  * Hybrid search interface — keyword + semantic search across all documents.
@@ -9,7 +14,8 @@ import type { HybridSearchResult } from '../../shared/types'
  */
 export function SearchView() {
   const [input, setInput] = useState('')
-  const { query, results, isSearching, error, search, clear } = useSearchStore()
+  const [showFilters, setShowFilters] = useState(false)
+  const { query, results, isSearching, error, filters, setFilter, search, clear } = useSearchStore()
 
   const handleSearch = () => {
     const trimmed = input.trim()
@@ -24,6 +30,8 @@ export function SearchView() {
     }
   }
 
+  const hasActiveFilters = filters.domain !== '' || filters.language !== '' || filters.limit !== 10
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -33,41 +41,70 @@ export function SearchView() {
 
       {/* Search Input */}
       <div className="border-b border-border px-6 py-4">
-        <div className="mx-auto flex max-w-3xl items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              data-shortcut="search-input"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Dokumente durchsuchen... (⌘K)"
-              className="w-full rounded-lg border border-border bg-secondary py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            {input && (
-              <button
-                onClick={() => {
-                  setInput('')
-                  clear()
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+        <div className="mx-auto max-w-3xl">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                data-shortcut="search-input"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Dokumente durchsuchen... (⌘K)"
+                className="w-full rounded-lg border border-border bg-secondary py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              {input && (
+                <button
+                  onClick={() => { setInput(''); clear() }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex h-10 items-center gap-1 rounded-lg border px-3 text-sm transition-colors ${
+                hasActiveFilters
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
+              }`}
+            >
+              <Filter className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleSearch}
+              disabled={!input.trim() || isSearching}
+              className="flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Suchen'}
+            </button>
           </div>
-          <button
-            onClick={handleSearch}
-            disabled={!input.trim() || isSearching}
-            className="flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-          >
-            {isSearching ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              'Suchen'
-            )}
-          </button>
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <div className="mt-3 flex flex-wrap gap-3 rounded-lg border border-border bg-secondary/50 p-3">
+              <FilterSelect
+                label="Domain"
+                value={filters.domain}
+                options={DOMAIN_OPTIONS}
+                onChange={(v) => setFilter('domain', v)}
+              />
+              <FilterSelect
+                label="Sprache"
+                value={filters.language}
+                options={LANGUAGE_OPTIONS}
+                onChange={(v) => setFilter('language', v)}
+              />
+              <FilterSelect
+                label="Ergebnisse"
+                value={String(filters.limit)}
+                options={LIMIT_OPTIONS.map(String) as unknown as readonly string[]}
+                onChange={(v) => setFilter('limit', Number(v))}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -118,14 +155,7 @@ export function SearchView() {
   )
 }
 
-/**
- * Single search result card with score breakdown.
- */
-/** Format a score safely — returns "—" if the value is nullish or NaN */
-function fmtScore(score: number | null | undefined): string {
-  if (score == null || Number.isNaN(score)) return '—'
-  return `${(score * 100).toFixed(0)}%`
-}
+// ── Sub-Components ──────────────────────────────────────────────────
 
 function ResultCard({ result }: { result: HybridSearchResult }) {
   return (
@@ -137,9 +167,9 @@ function ResultCard({ result }: { result: HybridSearchResult }) {
           <span className="text-sm font-medium">
             {result.file_name || 'Dokument'}
           </span>
-          {result.domain && (
-            <span className="rounded bg-slate-500/10 px-1.5 py-0.5 text-[10px] text-slate-400">
-              {result.domain}
+          {result.document_type && (
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary/70">
+              {result.document_type}
             </span>
           )}
         </div>
@@ -153,15 +183,56 @@ function ResultCard({ result }: { result: HybridSearchResult }) {
         {result.content}
       </p>
 
-      {/* Score breakdown: keyword vs semantic */}
-      <div className="mt-2 flex gap-3 text-[10px] text-muted-foreground/60">
-        <span>
-          BM25: {fmtScore(result.keyword_score)}
-        </span>
-        <span>
-          Semantic: {fmtScore(result.semantic_score)}
-        </span>
+      {/* Score breakdown with visual bars */}
+      <div className="mt-3 space-y-1">
+        <RelevanceIndicator score={result.keyword_score} label="BM25" />
+        <RelevanceIndicator score={result.semantic_score} label="Semantic" />
       </div>
+
+      {/* Tags: domain + language */}
+      {(result.domain || result.language) && (
+        <div className="mt-2 flex gap-2">
+          {result.domain && (
+            <span className="rounded bg-slate-500/10 px-1.5 py-0.5 text-[10px] text-slate-400">
+              {result.domain}
+            </span>
+          )}
+          {result.language && (
+            <span className="rounded bg-slate-500/10 px-1.5 py-0.5 text-[10px] text-slate-400">
+              {result.language}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function fmtScore(score: number | null | undefined): string {
+  if (score == null || Number.isNaN(score)) return '—'
+  return `${(score * 100).toFixed(0)}%`
+}
+
+function FilterSelect({ label, value, options, onChange }: {
+  label: string
+  value: string
+  options: readonly string[]
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <label className="text-xs text-muted-foreground">{label}:</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded border border-border bg-background px-2 py-1 text-xs text-foreground"
+      >
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt === '' ? 'Alle' : opt}
+          </option>
+        ))}
+      </select>
     </div>
   )
 }
