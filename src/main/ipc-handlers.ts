@@ -2,6 +2,7 @@ import { ipcMain, dialog, BrowserWindow, shell } from 'electron'
 import { readdir, stat, writeFile } from 'fs/promises'
 import { join, extname } from 'path'
 import { IPC_CHANNELS } from '../shared/types'
+import { getSetting, setSetting, getAllSettings } from './settings-store'
 import type { DocmindFeature } from '../shared/types'
 import type { QdrantSidecar } from './services/qdrant-sidecar'
 import type { PythonSidecar } from './services/python-sidecar'
@@ -171,6 +172,11 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
       }
       if (options?.domain) body.domain = options.domain
       if (options?.language) body.language = options.language
+      // Pipeline params — backend ignores if Phase A not active (graceful degradation)
+      if (options?.mmrEnabled != null) body.mmr_enabled = options.mmrEnabled
+      if (options?.mmrLambda != null) body.mmr_lambda = options.mmrLambda
+      if (options?.intentEnabled != null) body.intent_enabled = options.intentEnabled
+      if (options?.rerankingEnabled != null) body.reranking_enabled = options.rerankingEnabled
 
       const result = await postJSON(`${DASHBOARD_API}/search/hybrid`, body)
       return result
@@ -213,7 +219,7 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
 
   let activeAbortController: AbortController | null = null
 
-  ipcMain.handle(IPC_CHANNELS.CHAT_SEND, async (event, message: string, sessionId?: string) => {
+  ipcMain.handle(IPC_CHANNELS.CHAT_SEND, async (event, message: string, sessionId?: string, options?: Record<string, unknown>) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return { error: 'No window' }
 
@@ -230,9 +236,14 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
       const body: Record<string, unknown> = {
         message,
         include_sources: true,
-        max_context_chunks: 5,
+        max_context_chunks: options?.maxContextChunks ?? 5,
       }
       if (sessionId) body.session_id = sessionId
+      // Pipeline params for retrieval step inside chat
+      if (options?.mmrEnabled != null) body.mmr_enabled = options.mmrEnabled
+      if (options?.mmrLambda != null) body.mmr_lambda = options.mmrLambda
+      if (options?.intentEnabled != null) body.intent_enabled = options.intentEnabled
+      if (options?.rerankingEnabled != null) body.reranking_enabled = options.rerankingEnabled
 
       const response = await fetch(`${DASHBOARD_API}/chat/stream`, {
         method: 'POST',
@@ -500,9 +511,8 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
   })
 
   // ── Settings ───────────────────────────────────────────────────────
-  // MVP: Settings are stored in memory. Later: electron-store or sql.js.
-  // Allowlist prevents renderer exploits from writing arbitrary keys
-  // (e.g. injecting a malicious pythonPath).
+  // Persistent via electron-store (JSON in userData).
+  // Allowlist prevents renderer exploits from writing arbitrary keys.
   const ALLOWED_SETTINGS = new Set<string>([
     'ollamaUrl',
     'ollamaModel',
@@ -510,13 +520,12 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
     'ragWissenPath',
     'watchDirectories',
     'theme',
+    'pipeline',
   ])
 
-  let settings: Record<string, unknown> = {}
-
   ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, (_event, key?: string) => {
-    if (key) return settings[key]
-    return settings
+    if (key) return getSetting(key as keyof import('../shared/types').AppSettings)
+    return getAllSettings()
   })
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, (_event, key: string, value: unknown) => {
@@ -524,7 +533,7 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
       console.warn(`[Settings] Rejected write to unknown key: ${key}`)
       return false
     }
-    settings[key] = value
+    setSetting(key as keyof import('../shared/types').AppSettings, value as never)
     return true
   })
 
