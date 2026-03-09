@@ -9,14 +9,14 @@ import { useEffect, useCallback } from 'react'
  * is focused.
  *
  * Shortcuts:
- *   Cmd+1..4        Switch view (Chat, Search, Documents, Settings)
+ *   Cmd+1..5        Switch view (Chat, Search, Documents, Graph, Settings)
  *   Cmd+K           Focus search input
  *   Cmd+N           New chat (clear messages)
  *   Cmd+Shift+Del   Clear chat history
  *   Escape          Abort streaming / close modals
  */
 
-type View = 'chat' | 'search' | 'documents' | 'settings'
+type View = 'chat' | 'search' | 'documents' | 'graph' | 'settings'
 
 interface ShortcutActions {
   setActiveView: (view: View) => void
@@ -29,7 +29,8 @@ const VIEW_MAP: Record<string, View> = {
   '1': 'chat',
   '2': 'search',
   '3': 'documents',
-  '4': 'settings',
+  '4': 'graph',
+  '5': 'settings',
 }
 
 export function useKeyboardShortcuts(actions: ShortcutActions): void {

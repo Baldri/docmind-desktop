@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { MessageSquare, Search, FileText, Settings } from 'lucide-react'
+import { MessageSquare, Search, FileText, Settings, Network } from 'lucide-react'
 import { ChatView } from './components/ChatView'
 import { SearchView } from './components/SearchView'
 import { DocumentsView } from './components/DocumentsView'
 import { SettingsView } from './components/SettingsView'
+import { GraphView } from './components/GraphView'
 import { SetupWizard } from './components/SetupWizard'
 import { ServiceStatus } from './components/ServiceStatus'
 import { ConnectionBanner } from './components/ConnectionBanner'
@@ -14,12 +15,13 @@ import { useChatStore } from './stores/chat-store'
 import { useSubscriptionStore } from './stores/subscription-store'
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts'
 
-type View = 'chat' | 'search' | 'documents' | 'settings'
+type View = 'chat' | 'search' | 'documents' | 'graph' | 'settings'
 
 const NAV_ITEMS: { id: View; label: string; icon: typeof MessageSquare }[] = [
   { id: 'chat', label: 'Chat', icon: MessageSquare },
   { id: 'search', label: 'Suche', icon: Search },
   { id: 'documents', label: 'Dokumente', icon: FileText },
+  { id: 'graph', label: 'Wissens-Graph', icon: Network },
   { id: 'settings', label: 'Einstellungen', icon: Settings },
 ]
 
@@ -129,6 +131,7 @@ export function App() {
         {activeView === 'chat' && <ChatView />}
         {activeView === 'search' && <SearchView />}
         {activeView === 'documents' && <DocumentsView />}
+        {activeView === 'graph' && <GraphView />}
         {activeView === 'settings' && <SettingsView />}
       </main>
     </div>
