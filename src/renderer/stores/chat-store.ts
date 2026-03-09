@@ -125,7 +125,15 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       try {
         const { sessionId } = get()
-        await window.electronAPI.chat.send(content, sessionId ?? undefined)
+        // Load pipeline settings for retrieval step
+        const pipeline = await window.electronAPI.settings.get('pipeline') as Record<string, unknown> | undefined
+        await window.electronAPI.chat.send(content, sessionId ?? undefined, {
+          maxContextChunks: pipeline?.maxContextChunks ?? 5,
+          mmrEnabled: pipeline?.mmrEnabled,
+          mmrLambda: pipeline?.mmrLambda,
+          intentEnabled: pipeline?.intentEnabled,
+          rerankingEnabled: pipeline?.rerankingEnabled,
+        })
       } catch (error) {
         // Clean up listeners on IPC-level errors (e.g. main process unreachable)
         if (cleanupListeners) {
