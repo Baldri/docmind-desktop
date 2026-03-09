@@ -19,6 +19,9 @@ export function UpdateBanner() {
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
+    // Guard: updater API may not be available in browser dev mode
+    if (!window.electronAPI?.updater?.onStatus) return
+
     const cleanup = window.electronAPI.updater.onStatus((info) => {
       setUpdateInfo(info)
       // Show banner again when a new update becomes available
@@ -30,11 +33,11 @@ export function UpdateBanner() {
   }, [])
 
   const handleDownload = useCallback(() => {
-    window.electronAPI.updater.download()
+    window.electronAPI?.updater?.download()
   }, [])
 
   const handleInstall = useCallback(() => {
-    window.electronAPI.updater.install()
+    window.electronAPI?.updater?.install()
   }, [])
 
   const handleDismiss = useCallback(() => {

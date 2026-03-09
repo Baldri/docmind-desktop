@@ -225,7 +225,7 @@ export function SettingsView() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Version</span>
-                  <span className="font-mono">0.4.0</span>
+                  <span className="font-mono">0.4.1</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Plattform</span>

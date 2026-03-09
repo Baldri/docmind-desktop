@@ -14,6 +14,10 @@ export function PipelineConfig() {
 
   // Load pipeline settings from main process on mount
   useEffect(() => {
+    if (!window.electronAPI?.settings?.get) {
+      setLoaded(true)
+      return
+    }
     window.electronAPI.settings.get('pipeline').then((val: unknown) => {
       if (val && typeof val === 'object') {
         setSettings({ ...DEFAULT_PIPELINE_SETTINGS, ...(val as Partial<PipelineSettings>) })
@@ -34,7 +38,7 @@ export function PipelineConfig() {
     }
 
     setSettings(updated)
-    window.electronAPI.settings.set('pipeline', updated)
+    window.electronAPI?.settings?.set('pipeline', updated)
   }
 
   if (!loaded) return null
