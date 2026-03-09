@@ -3,6 +3,7 @@ import { useServicesStore } from '../stores/services-store'
 import { useThemeStore } from '../stores/theme-store'
 import { useSubscriptionStore } from '../stores/subscription-store'
 import { LicenseKeyDialog } from './LicenseKeyDialog'
+import { PipelineConfig } from './PipelineConfig'
 import { RefreshCw, Sun, Moon, Monitor, Key, Crown, CheckCircle } from 'lucide-react'
 import type { ServiceStatus } from '../../shared/types'
 
@@ -188,6 +189,9 @@ export function SettingsView() {
               ))}
             </div>
           </section>
+
+          {/* Pipeline Config */}
+          <PipelineConfig />
 
           {/* Keyboard Shortcuts */}
           <section>
