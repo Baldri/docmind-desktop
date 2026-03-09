@@ -153,6 +153,26 @@ export interface DocumentInfo {
 
 // ── Settings ────────────────────────────────────────────────────────────
 
+export interface PipelineSettings {
+  mmrEnabled: boolean
+  mmrLambda: number
+  intentEnabled: boolean
+  rerankingEnabled: boolean
+  maxContextChunks: number
+  keywordWeight: number
+  semanticWeight: number
+}
+
+export const DEFAULT_PIPELINE_SETTINGS: PipelineSettings = {
+  mmrEnabled: false,
+  mmrLambda: 0.5,
+  intentEnabled: false,
+  rerankingEnabled: false,
+  maxContextChunks: 5,
+  keywordWeight: 0.3,
+  semanticWeight: 0.7,
+}
+
 export interface AppSettings {
   ollamaUrl: string
   ollamaModel: string
@@ -160,6 +180,7 @@ export interface AppSettings {
   ragWissenPath: string
   watchDirectories: string[]
   theme: 'dark' | 'light' | 'system'
+  pipeline: PipelineSettings
 }
 
 // ── Auto-Update ─────────────────────────────────────────────────────
@@ -188,6 +209,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   ragWissenPath: '',
   watchDirectories: [],
   theme: 'dark',
+  pipeline: DEFAULT_PIPELINE_SETTINGS,
 }
 
 // ── Subscription & Feature Gating ──────────────────────────────────────
