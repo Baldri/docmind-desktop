@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Square, Trash2, BookOpen, ThumbsUp, ThumbsDown, ChevronDown, FileText, Download, Crown } from 'lucide-react'
+import { Send, Square, Trash2, BookOpen, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, FileText, Download, Crown } from 'lucide-react'
 import { useChatStore } from '../stores/chat-store'
 import { useSubscriptionStore } from '../stores/subscription-store'
 import { UpgradeDialog } from './UpgradeDialog'
+import { ConfidenceIndicator, RelevanceIndicator } from './RelevanceIndicator'
 import type { ChatMessage, ChatSource } from '../../shared/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -330,7 +331,10 @@ function MessageBubble({
 
           {/* Sources — shown once streaming completes */}
           {!isStreaming && message.sources && message.sources.length > 0 && (
-            <SourcesList sources={message.sources} />
+            <>
+              <ConfidenceIndicator sources={message.sources} />
+              <SourcesList sources={message.sources} />
+            </>
           )}
         </div>
 
@@ -368,10 +372,15 @@ function MessageBubble({
 
 /**
  * Expandable source list — click a source to see the context chunk.
- * Shows up to 5 sources with file name, score, and domain.
+ * Sorted by score (highest first), shows up to 5 with expand option.
  */
 function SourcesList({ sources }: { sources: ChatSource[] }) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
+  const [showAll, setShowAll] = useState(false)
+
+  const sortedSources = [...sources].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+  const displayed = showAll ? sortedSources : sortedSources.slice(0, 5)
+  const remaining = sortedSources.length - 5
 
   return (
     <div className="mt-3 border-t border-border pt-2">
@@ -379,7 +388,7 @@ function SourcesList({ sources }: { sources: ChatSource[] }) {
         {sources.length} Quelle{sources.length !== 1 ? 'n' : ''}
       </p>
       <div className="space-y-1">
-        {sources.slice(0, 5).map((src, i) => (
+        {displayed.map((src, i) => (
           <div key={i}>
             {/* Source header — clickable */}
             <button
@@ -390,9 +399,9 @@ function SourcesList({ sources }: { sources: ChatSource[] }) {
               <span className="flex-1 truncate">
                 {src.file_name || 'Dokument'}
               </span>
-              {src.score != null && !Number.isNaN(src.score) && (
-                <span className="shrink-0 text-emerald-400">
-                  {(src.score * 100).toFixed(0)}%
+              {src.document_type && (
+                <span className="shrink-0 rounded bg-primary/10 px-1 py-0.5 text-[10px] text-primary/70">
+                  {src.document_type}
                 </span>
               )}
               {src.domain && (
@@ -407,16 +416,39 @@ function SourcesList({ sources }: { sources: ChatSource[] }) {
               />
             </button>
 
-            {/* Expanded content preview */}
-            {expandedIndex === i && src.content && (
-              <div className="mt-1 rounded border border-border bg-background/50 px-3 py-2">
-                <p className="line-clamp-6 whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground/80">
-                  {src.content}
-                </p>
+            {/* Expanded content preview with score bar */}
+            {expandedIndex === i && (
+              <div className="mt-1 rounded border border-border bg-background/50 px-3 py-2 space-y-2">
+                <RelevanceIndicator score={src.score} label="Relevanz" size="sm" />
+                {src.content && (
+                  <p className="line-clamp-6 whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground/80">
+                    {src.content}
+                  </p>
+                )}
               </div>
             )}
           </div>
         ))}
+
+        {/* Show more / less toggle */}
+        {remaining > 0 && (
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="flex items-center gap-1 px-2 py-1 text-xs text-primary/70 hover:text-primary"
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="h-3 w-3" />
+                Weniger anzeigen
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3 w-3" />
+                {remaining} weitere Quelle{remaining !== 1 ? 'n' : ''}
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   )
