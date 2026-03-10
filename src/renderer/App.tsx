@@ -5,6 +5,7 @@ import { SearchView } from './components/SearchView'
 import { DocumentsView } from './components/DocumentsView'
 import { SettingsView } from './components/SettingsView'
 import { GraphView } from './components/GraphView'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { SetupWizard } from './components/SetupWizard'
 import { ServiceStatus } from './components/ServiceStatus'
 import { ConnectionBanner } from './components/ConnectionBanner'
@@ -132,7 +133,11 @@ export function App() {
         {activeView === 'chat' && <ChatView />}
         {activeView === 'search' && <SearchView />}
         {activeView === 'documents' && <DocumentsView />}
-        {activeView === 'graph' && <GraphView />}
+        {activeView === 'graph' && (
+          <ErrorBoundary fallbackTitle="Wissens-Graph konnte nicht geladen werden">
+            <GraphView />
+          </ErrorBoundary>
+        )}
         {activeView === 'settings' && <SettingsView />}
       </main>
     </div>

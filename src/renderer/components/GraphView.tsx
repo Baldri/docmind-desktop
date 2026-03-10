@@ -1,5 +1,5 @@
-import { useEffect, useRef, useCallback } from 'react'
-import { Network, RefreshCw, X, FileText, Users, Building2, MapPin } from 'lucide-react'
+import { useEffect, useRef, useCallback, useState } from 'react'
+import { Network, RefreshCw, X, FileText, Users, Building2, MapPin, ZoomIn, ZoomOut } from 'lucide-react'
 import { useGraphStore } from '../stores/graph-store'
 import type { GraphNode } from '../../shared/types'
 import {
@@ -45,6 +45,8 @@ const TYPE_LABELS: Record<string, string> = {
 export function GraphView() {
   const svgRef = useRef<SVGSVGElement>(null)
   const simulationRef = useRef<ReturnType<typeof forceSimulation<SimNode>> | null>(null)
+  const gRef = useRef<SVGGElement | null>(null)
+  const [zoomLevel, setZoomLevel] = useState(1)
 
   const {
     nodes, edges, stats, isLoading, error,
@@ -90,6 +92,7 @@ export function GraphView() {
     // Create SVG groups
     const root = select(svg)
     const g = root.append('g')
+    gRef.current = g.node()
 
     // Zoom behavior via wheel
     root.on('wheel', (event: WheelEvent) => {
@@ -229,6 +232,28 @@ export function GraphView() {
     return () => window.removeEventListener('resize', handleResize)
   }, [renderGraph])
 
+  // Zoom controls
+  const applyZoom = useCallback((newScale: number) => {
+    const g = gRef.current
+    if (!g) return
+    const clamped = Math.max(0.1, Math.min(5, newScale))
+    const currentTransform = g.getAttribute('transform') || 'translate(0,0) scale(1)'
+    const translateMatch = currentTransform.match(/translate\(([-\d.]+),([-\d.]+)\)/)
+    const tx = translateMatch ? parseFloat(translateMatch[1]) : 0
+    const ty = translateMatch ? parseFloat(translateMatch[2]) : 0
+    g.setAttribute('transform', `translate(${tx},${ty}) scale(${clamped})`)
+    setZoomLevel(clamped)
+  }, [])
+
+  const zoomIn = useCallback(() => applyZoom(zoomLevel * 1.25), [applyZoom, zoomLevel])
+  const zoomOut = useCallback(() => applyZoom(zoomLevel * 0.8), [applyZoom, zoomLevel])
+  const zoomReset = useCallback(() => {
+    const g = gRef.current
+    if (!g) return
+    g.setAttribute('transform', 'translate(0,0) scale(1)')
+    setZoomLevel(1)
+  }, [])
+
   const toggleEntityType = (type: 'persons' | 'organizations' | 'locations') => {
     const newTypes = entityTypes.includes(type)
       ? entityTypes.filter((t) => t !== type)
@@ -287,6 +312,33 @@ export function GraphView() {
           <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
           Laden
         </button>
+
+        {/* Zoom controls */}
+        {nodes.length > 0 && (
+          <div className="flex items-center gap-0.5 rounded border border-border">
+            <button
+              onClick={zoomOut}
+              className="rounded-l p-1 text-muted-foreground hover:bg-secondary"
+              title="Verkleinern"
+            >
+              <ZoomOut className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={zoomReset}
+              className="px-1.5 py-1 text-[10px] text-muted-foreground hover:bg-secondary"
+              title="Zoom zuruecksetzen"
+            >
+              {Math.round(zoomLevel * 100)}%
+            </button>
+            <button
+              onClick={zoomIn}
+              className="rounded-r p-1 text-muted-foreground hover:bg-secondary"
+              title="Vergroessern"
+            >
+              <ZoomIn className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {stats.node_count > 0 && (
           <span className="text-xs text-muted-foreground">
