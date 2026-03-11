@@ -49,6 +49,13 @@ export const IPC_CHANNELS = {
   GRAPH_ENTITIES: 'graph:entities',
   GRAPH_NEIGHBORS: 'graph:neighbors',
   GRAPH_VISUALIZE: 'graph:visualize',
+
+  // Projects
+  PROJECTS_LIST: 'projects:list',
+  PROJECTS_CREATE: 'projects:create',
+  PROJECTS_DELETE: 'projects:delete',
+  PROJECTS_GET_ACTIVE: 'projects:getActive',
+  PROJECTS_SET_ACTIVE: 'projects:setActive',
 } as const
 
 // ── Service Status ──────────────────────────────────────────────────────
@@ -191,6 +198,7 @@ export interface AppSettings {
   watchDirectories: string[]
   theme: 'dark' | 'light' | 'system'
   pipeline: PipelineSettings
+  activeProjectId: string
 }
 
 // ── Auto-Update ─────────────────────────────────────────────────────
@@ -220,6 +228,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   watchDirectories: [],
   theme: 'dark',
   pipeline: DEFAULT_PIPELINE_SETTINGS,
+  activeProjectId: 'default',
 }
 
 // ── Subscription & Feature Gating ──────────────────────────────────────
@@ -277,6 +286,29 @@ export const FREE_DOCUMENT_LIMIT = 50
  * @deprecated Use FREE_DOCUMENT_LIMIT instead. Kept for backward compatibility.
  */
 export const COMMUNITY_DOCUMENT_LIMIT = FREE_DOCUMENT_LIMIT
+
+// ── Projects ──────────────────────────────────────────────────────────
+
+export interface Project {
+  id: string
+  name: string
+  collection_name: string
+  description: string
+  is_default: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface ProjectWithStats extends Project {
+  vectors_count?: number
+  points_count?: number
+  file_stats?: {
+    total: number
+    indexed: number
+    pending: number
+    failed: number
+  }
+}
 
 // ── Graph RAG ──────────────────────────────────────────────────────────
 

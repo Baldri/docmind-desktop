@@ -77,13 +77,27 @@ interface ServiceDeps {
 }
 
 /**
+ * Build default headers for RAG-Wissen API requests.
+ * Automatically injects X-Project-Id from settings for multi-project support.
+ */
+function getProjectHeaders(): Record<string, string> {
+  const projectId = getSetting('activeProjectId') ?? 'default'
+  const headers: Record<string, string> = {}
+  if (projectId !== 'default') {
+    headers['X-Project-Id'] = projectId
+  }
+  return headers
+}
+
+/**
  * Helper to make JSON POST requests to the RAG-Wissen API.
  * Handles auth bypass (AUTH_REQUIRED=false is set by PythonSidecar).
+ * Automatically includes X-Project-Id header from settings.
  */
 async function postJSON(url: string, body: Record<string, unknown>): Promise<unknown> {
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getProjectHeaders() },
     body: JSON.stringify(body),
   })
   if (!response.ok) {
@@ -99,7 +113,9 @@ async function postJSON(url: string, body: Record<string, unknown>): Promise<unk
 }
 
 async function getJSON(url: string): Promise<unknown> {
-  const response = await fetch(url)
+  const response = await fetch(url, {
+    headers: getProjectHeaders(),
+  })
   if (!response.ok) {
     const text = await response.text().catch(() => '')
     throw new Error(`HTTP ${response.status}: ${text}`)
@@ -247,7 +263,7 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
 
       const response = await fetch(`${DASHBOARD_API}/chat/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getProjectHeaders() },
         body: JSON.stringify(body),
         signal: controller.signal,
       })
@@ -521,6 +537,7 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
     'watchDirectories',
     'theme',
     'pipeline',
+    'activeProjectId',
   ])
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, (_event, key?: string) => {
@@ -677,5 +694,61 @@ export function registerIPCHandlers(deps: ServiceDeps): void {
       console.error('[IPC] Graph visualize error:', error)
       return { nodes: [], edges: [], stats: { node_count: 0, edge_count: 0, total_entities_scanned: 0 }, error: String(error) }
     }
+  })
+
+  // ── Projects ──────────────────────────────────────────────────────
+  // Multi-project management via RAG-Wissen /api/v1/projects
+
+  ipcMain.handle(IPC_CHANNELS.PROJECTS_LIST, async () => {
+    try {
+      const result = await getJSON(`${DASHBOARD_API}/projects`)
+      return { projects: result }
+    } catch (error) {
+      console.error('[IPC] Projects list error:', error)
+      return { projects: [], error: String(error) }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.PROJECTS_CREATE, async (_event, name: string, description?: string) => {
+    try {
+      // Generate slug from name: lowercase, replace spaces/special chars with hyphens
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 63)
+      const body: Record<string, unknown> = {
+        project_id: slug,
+        name,
+        description: description ?? '',
+      }
+      const result = await postJSON(`${DASHBOARD_API}/projects`, body)
+      return result
+    } catch (error) {
+      console.error('[IPC] Projects create error:', error)
+      return { error: String(error) }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.PROJECTS_DELETE, async (_event, projectId: string) => {
+    try {
+      const response = await fetch(`${DASHBOARD_API}/projects/${encodeURIComponent(projectId)}`, {
+        method: 'DELETE',
+        headers: getProjectHeaders(),
+      })
+      if (!response.ok) {
+        const text = await response.text().catch(() => '')
+        throw new Error(`HTTP ${response.status}: ${text}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('[IPC] Projects delete error:', error)
+      return { error: String(error) }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.PROJECTS_GET_ACTIVE, () => {
+    return getSetting('activeProjectId') ?? 'default'
+  })
+
+  ipcMain.handle(IPC_CHANNELS.PROJECTS_SET_ACTIVE, (_event, projectId: string) => {
+    setSetting('activeProjectId', projectId)
+    return true
   })
 }

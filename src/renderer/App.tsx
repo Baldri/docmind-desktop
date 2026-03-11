@@ -8,6 +8,7 @@ import { GraphView } from './components/GraphView'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { SetupWizard } from './components/SetupWizard'
 import { ServiceStatus } from './components/ServiceStatus'
+import { ProjectSwitcher } from './components/ProjectSwitcher'
 import { ConnectionBanner } from './components/ConnectionBanner'
 import { UpdateBanner } from './components/UpdateBanner'
 import { OnboardingTour } from './components/OnboardingTour'
@@ -99,7 +100,10 @@ export function App() {
       {/* Sidebar — icon-only on small screens, icons+labels on lg+ */}
       <aside className="flex w-16 lg:w-48 flex-col border-r border-border bg-slate-100 dark:bg-slate-950 py-4">
         {/* macOS drag region */}
-        <div className="drag-region mb-6 h-4 w-full" />
+        <div className="drag-region mb-4 h-4 w-full" />
+
+        {/* Project Switcher */}
+        <ProjectSwitcher />
 
         {/* Navigation */}
         <nav className="no-drag flex flex-1 flex-col gap-1 px-2">

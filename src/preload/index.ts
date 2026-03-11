@@ -170,6 +170,24 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.GRAPH_VISUALIZE, entityTypes, minCount, limit, domain),
   },
 
+  // ── Projects ──────────────────────────────────────────────────────
+  projects: {
+    list: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.PROJECTS_LIST),
+
+    create: (name: string, description?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PROJECTS_CREATE, name, description),
+
+    delete: (projectId: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PROJECTS_DELETE, projectId),
+
+    getActive: (): Promise<string> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PROJECTS_GET_ACTIVE),
+
+    setActive: (projectId: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.PROJECTS_SET_ACTIVE, projectId),
+  },
+
   // ── Platform Info ───────────────────────────────────────────────────
   platform: process.platform as 'darwin' | 'win32' | 'linux',
 }
