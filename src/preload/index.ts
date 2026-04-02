@@ -193,15 +193,14 @@ const api = {
 }
 
 // Expose to renderer via contextBridge
-if (process.contextIsolated) {
+if (!process.contextIsolated) {
+  console.error('[Preload] contextIsolation is required — refusing to expose API')
+} else {
   try {
     contextBridge.exposeInMainWorld('electronAPI', api)
   } catch (error) {
     console.error('Failed to expose electronAPI:', error)
   }
-} else {
-  // Fallback for non-isolated contexts (should not happen in production)
-  (window as unknown as Record<string, unknown>).electronAPI = api
 }
 
 export type ElectronAPI = typeof api

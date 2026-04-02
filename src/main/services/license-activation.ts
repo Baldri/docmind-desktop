@@ -16,7 +16,7 @@ import { app } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
 import * as crypto from 'crypto'
-import { LICENSE_HMAC_SECRET } from './_license-secret'
+import { LICENSE_HMAC_SECRET, IS_PRODUCTION_SECRET } from './_license-secret'
 import type { SubscriptionTier, LicenseStatus } from '../../shared/types'
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -54,6 +54,12 @@ export class LicenseActivationService {
   private store: LicenseStore | null
 
   constructor(configDir?: string) {
+    // Guard: production builds must inject a real license secret
+    if (app.isPackaged && !IS_PRODUCTION_SECRET) {
+      throw new Error(
+        'Production build requires a real license secret. Set LICENSE_HMAC_SECRET via build-time injection.'
+      )
+    }
     const dir = configDir || this.resolveConfigDir()
     this.storePath = path.join(dir, 'license.json')
     this.store = this.load()
