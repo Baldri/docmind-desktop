@@ -51,7 +51,9 @@ extraResources:
   - from: "bin/${os}/${arch}/"
     to: "bin/"
     filter:
-      - "**/*"
+      # Only the binary itself — keeps .bak/stale files out of the installer
+      - "qdrant"
+      - "qdrant.exe"
 
 extraMetadata:
   name: Docmind
