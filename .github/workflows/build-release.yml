@@ -20,7 +20,7 @@ concurrency:
 
 env:
   NODE_VERSION: '20'
-  QDRANT_VERSION: '1.16.3'
+  QDRANT_VERSION: '1.17.1'
 
 jobs:
   # ── Test Gate ──────────────────────────────────────────────────────
@@ -154,19 +154,35 @@ jobs:
       # --publish always: uploads artifacts to the release matching the tag.
       # For workflow_dispatch (no tag): creates a draft release.
       #
+      # ── macOS signing & notarization setup ──────────────────────────
+      # Writes the App Store Connect API key to disk and exports signing/
+      # notarization env vars via GITHUB_ENV (macOS jobs only). Signing uses
+      # CSC_LINK (base64 .p12) + CSC_KEY_PASSWORD; notarization uses the
+      # API-key trio (electron-builder auto-notarizes + staples when set).
+      # CSC vars must NOT be set on Linux/Windows jobs — an empty or wrong-type
+      # cert crashes electron-builder there, hence the mac-only guard.
+      - name: Setup macOS signing & notarization
+        if: startsWith(matrix.platform, 'mac')
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          printf '%s' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          {
+            echo "CSC_LINK=${{ secrets.CSC_LINK }}"
+            echo "CSC_KEY_PASSWORD=${{ secrets.CSC_KEY_PASSWORD }}"
+            echo "APPLE_API_KEY=$RUNNER_TEMP/AuthKey.p8"
+            echo "APPLE_API_KEY_ID=CULSWP7496"
+            echo "APPLE_API_ISSUER=2e60499e-ced7-40e9-9481-3556fdb7ff36"
+          } >> "$GITHUB_ENV"
+
       # IMPORTANT: Do NOT pass empty CSC_LINK or WIN_CSC_LINK — electron-builder
-      # resolves "" as CWD path and crashes. Only set signing vars when secrets
-      # are configured. CSC_IDENTITY_AUTO_DISCOVERY=false disables auto-discovery.
+      # resolves "" as CWD path and crashes. macOS signing env comes from the
+      # setup step above; CSC_IDENTITY_AUTO_DISCOVERY=false disables keychain
+      # auto-discovery (explicit CSC_LINK still applies).
       - name: Package & publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Disable auto-discovery of signing identities (prevents crashes
-          # when no certificate is available on macOS/Windows)
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          # macOS notarization (safe to set — skipped by script when empty)
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npx electron-builder ${{ matrix.builder_flags }} --publish always
 
       # ── Upload artifacts (backup, independent of Release) ───────────
