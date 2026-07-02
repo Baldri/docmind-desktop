@@ -4,23 +4,28 @@
 
 set -euo pipefail
 
-QDRANT_VERSION="1.16.3"
+QDRANT_VERSION="1.17.1"
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
 
-# Map platform to Qdrant release asset names
+# Map platform/arch to Qdrant release asset names AND to the
+# electron-builder naming (mac/win/linux + arm64/x64) that both
+# qdrant-sidecar.ts (PLATFORM_MAP + process.arch) and the
+# extraResources config in electron-builder.yml expect.
 case "$OS" in
   darwin)
+    BUILDER_OS="mac"
     case "$ARCH" in
-      arm64|aarch64) ASSET="qdrant-aarch64-apple-darwin.tar.gz" ;;
-      x86_64)        ASSET="qdrant-x86_64-apple-darwin.tar.gz" ;;
+      arm64|aarch64) BUILDER_ARCH="arm64"; ASSET="qdrant-aarch64-apple-darwin.tar.gz" ;;
+      x86_64)        BUILDER_ARCH="x64";   ASSET="qdrant-x86_64-apple-darwin.tar.gz" ;;
       *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
     esac
     ;;
   linux)
+    BUILDER_OS="linux"
     case "$ARCH" in
-      x86_64|amd64)  ASSET="qdrant-x86_64-unknown-linux-gnu.tar.gz" ;;
-      aarch64|arm64) ASSET="qdrant-aarch64-unknown-linux-gnu.tar.gz" ;;
+      x86_64|amd64)  BUILDER_ARCH="x64";   ASSET="qdrant-x86_64-unknown-linux-gnu.tar.gz" ;;
+      aarch64|arm64) BUILDER_ARCH="arm64"; ASSET="qdrant-aarch64-unknown-linux-gnu.tar.gz" ;;
       *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
     esac
     ;;
@@ -31,7 +36,7 @@ case "$OS" in
 esac
 
 # Target directory
-BIN_DIR="bin/$OS/$ARCH"
+BIN_DIR="bin/$BUILDER_OS/$BUILDER_ARCH"
 mkdir -p "$BIN_DIR"
 
 # Check if already exists
