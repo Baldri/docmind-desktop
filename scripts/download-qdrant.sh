@@ -25,7 +25,7 @@ case "$OS" in
     BUILDER_OS="linux"
     case "$ARCH" in
       x86_64|amd64)  BUILDER_ARCH="x64";   ASSET="qdrant-x86_64-unknown-linux-gnu.tar.gz" ;;
-      aarch64|arm64) BUILDER_ARCH="arm64"; ASSET="qdrant-aarch64-unknown-linux-gnu.tar.gz" ;;
+      aarch64|arm64) BUILDER_ARCH="arm64"; ASSET="qdrant-aarch64-unknown-linux-musl.tar.gz" ;;
       *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
     esac
     ;;
