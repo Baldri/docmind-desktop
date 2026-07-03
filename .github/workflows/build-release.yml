@@ -65,7 +65,10 @@ jobs:
             qdrant_bin_dir: mac/arm64
             builder_flags: '-m --arm64'
           # macOS Intel (x64)
-          - os: macos-13
+          # Cross-built on Apple Silicon — free Intel runners (macos-13)
+          # are retired and queue indefinitely. No native modules in the
+          # app; the x64 Qdrant binary is downloaded per matrix entry.
+          - os: macos-latest
             platform: mac-x64
             qdrant_asset: qdrant-x86_64-apple-darwin.tar.gz
             qdrant_bin_dir: mac/x64
