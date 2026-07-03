@@ -79,7 +79,8 @@ jobs:
           # Linux arm64
           - os: ubuntu-latest
             platform: linux-arm64
-            qdrant_asset: qdrant-aarch64-unknown-linux-gnu.tar.gz
+            # v1.17.x ships no aarch64 gnu build — musl is statically linked
+            qdrant_asset: qdrant-aarch64-unknown-linux-musl.tar.gz
             qdrant_bin_dir: linux/arm64
             builder_flags: '-l --arm64'
           # Windows x64
